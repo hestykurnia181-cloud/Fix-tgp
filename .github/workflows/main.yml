@@ -32,31 +32,52 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 📦 2. Deteksi & Ekstrak File ZIP Otomatis (Jika Ada)
-        run: |
-          echo "🔍 Memeriksa apakah ada file .zip di repositori..."
-          ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
+      - name: 📦 2. Cari ZIP Terbaru & Ekstrak
+  shell: bash
+  run: |
+    set -e
 
-          if [ -n "$ZIP_FILE" ]; then
-            echo "📦 Ditemukan file arsip: $ZIP_FILE. Mengekstrak sekarang..."
-            mkdir -p temp_zip_extracted
-            unzip -q -o "$ZIP_FILE" -d temp_zip_extracted
+    echo "🔍 Mencari file ZIP terbaru..."
 
-            # Cari letak package.json di dalam hasil ekstrak
-            PKG_DIR=$(find temp_zip_extracted -name "package.json" -exec dirname {} \; | head -n 1)
-            if [ -n "$PKG_DIR" ]; then
-              echo "Memindahkan berkas dari $PKG_DIR ke root repositori..."
-              if [ -d "$PKG_DIR/.github" ]; then
-                mkdir -p .github/workflows
-                cp -rf "$PKG_DIR/.github/workflows/"* .github/workflows/ 2>/dev/null || true
-                rm -rf "$PKG_DIR/.github"
-              fi
-              cp -rT "$PKG_DIR" .
-            else
-              cp -rT temp_zip_extracted .
-            fi
-            rm -rf temp_zip_extracted
-            echo "✅ Ekstraksi ZIP selesai!"
+    ZIP_FILE=$(find "$GITHUB_WORKSPACE" -type f -name "*.zip" \
+      -printf "%T@ %p\n" | sort -rn | head -1 | cut -d' ' -f2-)
+
+    if [ -z "$ZIP_FILE" ]; then
+      echo "❌ Tidak ada file ZIP."
+      exit 1
+    fi
+
+    echo "✅ Menggunakan ZIP:"
+    echo "$ZIP_FILE"
+
+    rm -rf extracted
+    mkdir extracted
+
+    unzip -qo "$ZIP_FILE" -d extracted
+
+    PROJECT_DIR=$(find extracted -name package.json -exec dirname {} \; | head -1)
+
+    if [ -z "$PROJECT_DIR" ]; then
+      echo "❌ package.json tidak ditemukan."
+      exit 1
+    fi
+
+    echo "📂 Project ditemukan:"
+    echo "$PROJECT_DIR"
+
+    shopt -s dotglob
+
+    find . -mindepth 1 \
+      ! -path "./.git*" \
+      ! -path "./.github*" \
+      ! -path "./*.zip" \
+      -exec rm -rf {} +
+
+    cp -a "$PROJECT_DIR"/. .
+
+    rm -rf extracted
+
+    echo "✅ ZIP terbaru berhasil diekstrak."
           else
             echo "ℹ️ Tidak ada file .zip. Menggunakan file yang sudah ada di repositori."
           fi
