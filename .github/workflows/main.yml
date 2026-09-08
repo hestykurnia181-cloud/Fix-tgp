@@ -11,10 +11,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: tgp-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: "24"
 
 jobs:
+
+  # ============================================================
+  # ANDROID APK
+  # ============================================================
 
   android:
     name: Build Android APK
@@ -34,7 +42,7 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Find ZIP
+      - name: Find and Extract ZIP
         shell: bash
         run: |
           set -e
@@ -47,7 +55,7 @@ jobs:
             exit 1
           fi
 
-          echo "ZIP: $ZIP"
+          echo "ZIP ditemukan: $ZIP"
 
           rm -rf _extract project
 
@@ -56,10 +64,13 @@ jobs:
 
           unzip -q "$ZIP" -d _extract
 
-          PACKAGE=$(find _extract -type f -name "package.json" | head -n 1)
+          PACKAGE=$(find _extract \
+            -type f \
+            -name "package.json" \
+            | head -n 1)
 
           if [ -z "$PACKAGE" ]; then
-            echo "ERROR: package.json tidak ditemukan dalam ZIP."
+            echo "ERROR: package.json tidak ditemukan di dalam ZIP."
             exit 1
           fi
 
@@ -77,14 +88,16 @@ jobs:
           python3 <<'PY'
           from pathlib import Path
 
-          # -----------------------------------------------
-          # Capacitor config
-          # -----------------------------------------------
+          # ======================================================
+          # FIX CAPACITOR CONFIG
+          # ======================================================
 
           p = Path("project/capacitor.config.ts")
 
           if not p.exists():
-              raise SystemExit("capacitor.config.ts tidak ditemukan")
+              raise SystemExit(
+                  "ERROR: capacitor.config.ts tidak ditemukan."
+              )
 
           text = p.read_text()
 
@@ -95,17 +108,19 @@ jobs:
 
           p.write_text(text)
 
-          print("Capacitor config patched.")
+          print("Capacitor config checked.")
 
 
-          # -----------------------------------------------
-          # Bottom bar OWNER narrowing
-          # -----------------------------------------------
+          # ======================================================
+          # FIX OWNER TYPE NARROWING
+          # ======================================================
 
           p = Path("project/src/components/TgpBottomBar.tsx")
 
           if not p.exists():
-              raise SystemExit("TgpBottomBar.tsx tidak ditemukan")
+              raise SystemExit(
+                  "ERROR: TgpBottomBar.tsx tidak ditemukan."
+              )
 
           text = p.read_text()
 
@@ -115,9 +130,9 @@ jobs:
 
           if old in text:
               text = text.replace(old, new)
-              print("OWNER check patched.")
+              print("OWNER narrowing fixed.")
           else:
-              print("OWNER check pattern not found; leaving source unchanged.")
+              print("OWNER pattern already fixed or not present.")
 
           p.write_text(text)
           PY
@@ -126,7 +141,8 @@ jobs:
         run: |
           test -f project/package.json
           test -f project/capacitor.config.ts
-          echo "Project OK"
+
+          echo "Project OK."
 
       - name: Install dependencies
         working-directory: project
@@ -137,7 +153,8 @@ jobs:
         run: |
           test -n "$VITE_SUPABASE_URL"
           test -n "$VITE_SUPABASE_ANON_KEY"
-          echo "Supabase configuration OK"
+
+          echo "Supabase configuration OK."
 
       - name: Lint
         working-directory: project
@@ -168,16 +185,24 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build APK
+      - name: Build Android APK
         working-directory: project/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Verify APK
+      - name: Verify Android APK
         run: |
-          test -f project/android/app/build/outputs/apk/debug/app-debug.apk
-          ls -lh project/android/app/build/outputs/apk/debug/app-debug.apk
+          APK="project/android/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK tidak ditemukan."
+            find project/android -type f -name "*.apk" -print || true
+            exit 1
+          fi
+
+          echo "APK berhasil dibuat:"
+          ls -lh "$APK"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -187,6 +212,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+
+  # ============================================================
+  # IOS SIMULATOR
+  # ============================================================
 
   ios:
     name: Build iOS Simulator
@@ -206,7 +235,7 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Find ZIP
+      - name: Find and Extract ZIP
         shell: bash
         run: |
           set -e
@@ -219,6 +248,8 @@ jobs:
             exit 1
           fi
 
+          echo "ZIP ditemukan: $ZIP"
+
           rm -rf _extract project
 
           mkdir -p _extract
@@ -226,7 +257,10 @@ jobs:
 
           unzip -q "$ZIP" -d _extract
 
-          PACKAGE=$(find _extract -type f -name "package.json" | head -n 1)
+          PACKAGE=$(find _extract \
+            -type f \
+            -name "package.json" \
+            | head -n 1)
 
           if [ -z "$PACKAGE" ]; then
             echo "ERROR: package.json tidak ditemukan."
@@ -247,7 +281,16 @@ jobs:
           python3 <<'PY'
           from pathlib import Path
 
+          # ======================================================
+          # FIX CAPACITOR
+          # ======================================================
+
           p = Path("project/capacitor.config.ts")
+
+          if not p.exists():
+              raise SystemExit(
+                  "ERROR: capacitor.config.ts tidak ditemukan."
+              )
 
           text = p.read_text()
 
@@ -258,7 +301,19 @@ jobs:
 
           p.write_text(text)
 
+          print("Capacitor config fixed.")
+
+
+          # ======================================================
+          # FIX OWNER TYPE NARROWING
+          # ======================================================
+
           p = Path("project/src/components/TgpBottomBar.tsx")
+
+          if not p.exists():
+              raise SystemExit(
+                  "ERROR: TgpBottomBar.tsx tidak ditemukan."
+              )
 
           text = p.read_text()
 
@@ -268,6 +323,9 @@ jobs:
 
           if old in text:
               text = text.replace(old, new)
+              print("OWNER narrowing fixed.")
+          else:
+              print("OWNER pattern already fixed or not present.")
 
           p.write_text(text)
           PY
@@ -276,7 +334,8 @@ jobs:
         run: |
           test -f project/package.json
           test -f project/capacitor.config.ts
-          echo "Project OK"
+
+          echo "Project OK."
 
       - name: Install dependencies
         working-directory: project
@@ -287,7 +346,8 @@ jobs:
         run: |
           test -n "$VITE_SUPABASE_URL"
           test -n "$VITE_SUPABASE_ANON_KEY"
-          echo "Supabase configuration OK"
+
+          echo "Supabase configuration OK."
 
       - name: Lint
         working-directory: project
@@ -309,43 +369,233 @@ jobs:
         run: |
           npx cap sync ios
 
+      # ========================================================
+      # CHECK WHAT CAPACITOR ACTUALLY CREATED
+      # ========================================================
+
+      - name: Inspect iOS project
+        working-directory: project
+        shell: bash
+        run: |
+          echo "=============================================="
+          echo "IOS PROJECT STRUCTURE"
+          echo "=============================================="
+
+          find ios/App \
+            -maxdepth 3 \
+            \( -name "*.xcworkspace" \
+            -o -name "*.xcodeproj" \
+            -o -name "Podfile" \) \
+            -print
+
+          echo ""
+          echo "iOS directory:"
+          find ios/App -maxdepth 2 -type d -print
+
+
+      # ========================================================
+      # XCODE
+      # ========================================================
+
       - name: Show Xcode
         run: |
+          xcode-select -p
           xcodebuild -version
+
+
+      # ========================================================
+      # INSTALL PODS IF PODFILE EXISTS
+      # ========================================================
+
+      - name: Install CocoaPods
+        working-directory: project
+        shell: bash
+        run: |
+          if [ -f "ios/App/Podfile" ]; then
+            echo "Podfile ditemukan."
+
+            if command -v pod >/dev/null 2>&1; then
+              echo "CocoaPods tersedia:"
+              pod --version
+            else
+              echo "CocoaPods tidak tersedia. Installing..."
+              sudo gem install cocoapods
+            fi
+
+            cd ios/App
+
+            pod install --repo-update
+
+          else
+            echo "Tidak ada Podfile."
+            echo "Akan menggunakan Xcode project."
+          fi
+
+
+      # ========================================================
+      # DETERMINE XCODE BUILD TARGET
+      # ========================================================
+
+      - name: Determine iOS build target
+        working-directory: project
+        shell: bash
+        run: |
+          set -e
+
+          WORKSPACE="ios/App/App.xcworkspace"
+          PROJECT="ios/App/App.xcodeproj"
+
+          if [ -d "$WORKSPACE" ]; then
+            echo "BUILD_TYPE=workspace" >> "$GITHUB_ENV"
+            echo "BUILD_PATH=$WORKSPACE" >> "$GITHUB_ENV"
+
+            echo "Using:"
+            echo "$WORKSPACE"
+
+          elif [ -d "$PROJECT" ]; then
+            echo "BUILD_TYPE=project" >> "$GITHUB_ENV"
+            echo "BUILD_PATH=$PROJECT" >> "$GITHUB_ENV"
+
+            echo "Using:"
+            echo "$PROJECT"
+
+          else
+            echo "ERROR: Tidak ditemukan:"
+            echo "- App.xcworkspace"
+            echo "- App.xcodeproj"
+
+            find ios \
+              -maxdepth 4 \
+              -print
+
+            exit 1
+          fi
+
+
+      # ========================================================
+      # BUILD IOS SIMULATOR
+      # ========================================================
 
       - name: Build iOS Simulator
         working-directory: project
+        shell: bash
         run: |
-          xcodebuild \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/ios \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            build
+          set -e
 
-      - name: Verify iOS
-        run: |
-          test -d project/build/ios/Build/Products/Debug-iphonesimulator/App.app
-          echo "iOS Simulator app OK"
+          echo "=============================================="
+          echo "BUILD IOS SIMULATOR"
+          echo "=============================================="
 
-      - name: Package iOS
+          if [ "$BUILD_TYPE" = "workspace" ]; then
+
+            echo "Building workspace:"
+            echo "$BUILD_PATH"
+
+            xcodebuild \
+              -workspace "$BUILD_PATH" \
+              -scheme App \
+              -configuration Debug \
+              -sdk iphonesimulator \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath build/ios \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              build
+
+          else
+
+            echo "Building project:"
+            echo "$BUILD_PATH"
+
+            xcodebuild \
+              -project "$BUILD_PATH" \
+              -scheme App \
+              -configuration Debug \
+              -sdk iphonesimulator \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath build/ios \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              build
+
+          fi
+
+
+      # ========================================================
+      # VERIFY IOS APP
+      # ========================================================
+
+      - name: Verify iOS App
         working-directory: project
+        shell: bash
         run: |
+          set -e
+
+          echo "Searching for App.app..."
+
+          APP_PATH=$(find build/ios \
+            -type d \
+            -name "App.app" \
+            | head -n 1)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: App.app tidak ditemukan."
+
+            echo ""
+            echo "Build directory:"
+            find build/ios \
+              -maxdepth 5 \
+              -print || true
+
+            exit 1
+          fi
+
+          echo ""
+          echo "iOS Simulator App:"
+          echo "$APP_PATH"
+
+          ls -ld "$APP_PATH"
+
+
+      # ========================================================
+      # PACKAGE IOS
+      # ========================================================
+
+      - name: Package iOS Simulator
+        working-directory: project
+        shell: bash
+        run: |
+          set -e
+
           mkdir -p artifacts
+
+          APP_PATH=$(find build/ios \
+            -type d \
+            -name "App.app" \
+            | head -n 1)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: App.app tidak ditemukan."
+            exit 1
+          fi
 
           ditto \
             -c \
             -k \
             --sequesterRsrc \
             --keepParent \
-            build/ios/Build/Products/Debug-iphonesimulator/App.app \
+            "$APP_PATH" \
             artifacts/TGP-Management-iOS-Simulator.app.zip
 
-      - name: Upload iOS
+          echo "Artifact:"
+          ls -lh artifacts/TGP-Management-iOS-Simulator.app.zip
+
+
+      # ========================================================
+      # UPLOAD IOS
+      # ========================================================
+
+      - name: Upload iOS Simulator
         uses: actions/upload-artifact@v4
         with:
           name: TGP-Management-iOS-Simulator
@@ -353,6 +603,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+
+  # ============================================================
+  # FINAL VERIFICATION
+  # ============================================================
 
   verify:
     name: Verify Android + iOS
@@ -368,17 +622,26 @@ jobs:
 
       - name: Verify results
         run: |
+          echo "=============================================="
+          echo "       TGP MANAGEMENT MOBILE BUILD"
+          echo "=============================================="
+          echo ""
+
           echo "Android = ${{ needs.android.result }}"
           echo "iOS     = ${{ needs.ios.result }}"
+          echo ""
 
           if [ "${{ needs.android.result }}" != "success" ]; then
+            echo "ANDROID BUILD FAILED"
             exit 1
           fi
 
           if [ "${{ needs.ios.result }}" != "success" ]; then
+            echo "IOS BUILD FAILED"
             exit 1
           fi
 
-          echo "================================"
-          echo "TGP MANAGEMENT BUILD SUCCESS"
-          echo "================================"
+          echo ""
+          echo "=============================================="
+          echo "ALL BUILDS SUCCESSFUL"
+          echo "=============================================="
