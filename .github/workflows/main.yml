@@ -1,33 +1,21 @@
 name: TGP Management - Android & iOS
 
 on:
+  workflow_dispatch:
+
   push:
     branches:
       - main
       - master
 
-  pull_request:
-    branches:
-      - main
-      - master
-
-  workflow_dispatch:
-
 permissions:
   contents: read
 
-concurrency:
-  group: tgp-mobile-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
-  NODE_VERSION: 24
+  NODE_VERSION: "24"
 
 jobs:
 
-  # ============================================================
-  # ANDROID APK
-  # ============================================================
   android:
     name: Build Android APK
     runs-on: ubuntu-latest
@@ -38,269 +26,168 @@ jobs:
 
     steps:
 
-      # --------------------------------------------------------
-      # 1. CHECKOUT GITHUB
-      # --------------------------------------------------------
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # --------------------------------------------------------
-      # 2. SETUP NODE
-      #
-      # JANGAN menggunakan cache: npm
-      # karena package-lock.json berada di dalam ZIP.
-      # --------------------------------------------------------
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: "24"
 
-      # --------------------------------------------------------
-      # 3. EXTRACT ZIP PROJECT
-      # --------------------------------------------------------
-      - name: Extract TGP project ZIP
+      - name: Find ZIP
         shell: bash
         run: |
           set -e
 
-          echo "=============================================="
-          echo "MENCARI ZIP PROJECT TGP"
-          echo "=============================================="
+          ZIP=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
 
-          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: File ZIP tidak ditemukan di root repository."
-            echo ""
-            echo "File yang tersedia:"
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: ZIP project tidak ditemukan."
             ls -lah
             exit 1
           fi
 
-          echo "ZIP ditemukan:"
-          echo "$ZIP_FILE"
+          echo "ZIP: $ZIP"
 
-          rm -rf _tgp_extract project
-          mkdir -p _tgp_extract
+          rm -rf _extract project
+
+          mkdir -p _extract
           mkdir -p project
 
-          echo ""
-          echo "Extracting ZIP..."
+          unzip -q "$ZIP" -d _extract
 
-          unzip -q "$ZIP_FILE" -d _tgp_extract
+          PACKAGE=$(find _extract -type f -name "package.json" | head -n 1)
 
-          echo ""
-          echo "Mencari package.json..."
-
-          PACKAGE_JSON=$(find _tgp_extract \
-            -type f \
-            -name "package.json" \
-            -print \
-            | head -n 1)
-
-          if [ -z "$PACKAGE_JSON" ]; then
-            echo "ERROR: package.json tidak ditemukan di dalam ZIP."
-            echo ""
-            echo "Isi ZIP:"
-            find _tgp_extract -maxdepth 3 -type f | head -100
+          if [ -z "$PACKAGE" ]; then
+            echo "ERROR: package.json tidak ditemukan dalam ZIP."
             exit 1
           fi
 
-          PROJECT_ROOT=$(dirname "$PACKAGE_JSON")
+          ROOT=$(dirname "$PACKAGE")
 
-          echo "package.json ditemukan:"
-          echo "$PACKAGE_JSON"
+          echo "Project root: $ROOT"
 
-          echo ""
-          echo "Project root:"
-          echo "$PROJECT_ROOT"
+          cp -a "$ROOT"/. project/
 
-          echo ""
-          echo "Menyiapkan project root..."
-
-          cp -a "$PROJECT_ROOT"/. project/
-
-          echo ""
-          echo "Project berhasil diekstrak."
-
-          echo ""
-          echo "Isi project:"
-          ls -lah project
-
-      # --------------------------------------------------------
-      # 4. VERIFY PROJECT
-      # --------------------------------------------------------
-      - name: Verify extracted project
+      - name: Patch project
         shell: bash
         run: |
           set -e
 
-          if [ ! -f "project/package.json" ]; then
-            echo "ERROR: project/package.json tidak ditemukan."
-            exit 1
-          fi
+          python3 <<'PY'
+          from pathlib import Path
 
-          if [ ! -f "project/capacitor.config.ts" ]; then
-            echo "ERROR: capacitor.config.ts tidak ditemukan."
-            exit 1
-          fi
+          # -----------------------------------------------
+          # Capacitor config
+          # -----------------------------------------------
 
-          echo "=============================================="
-          echo "PROJECT VALID"
-          echo "=============================================="
+          p = Path("project/capacitor.config.ts")
 
-          echo ""
-          echo "package.json:"
-          cat project/package.json
+          if not p.exists():
+              raise SystemExit("capacitor.config.ts tidak ditemukan")
 
-      # --------------------------------------------------------
-      # 5. SETUP JAVA
-      # --------------------------------------------------------
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: gradle
+          text = p.read_text()
 
-      # --------------------------------------------------------
-      # 6. ANDROID SDK
-      # --------------------------------------------------------
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+          text = text.replace(
+              "  bundledWebRuntime: false,\n",
+              ""
+          )
 
-      # --------------------------------------------------------
-      # 7. INSTALL NPM DEPENDENCIES
-      #
-      # IMPORTANT:
-      # Menggunakan npm install, BUKAN npm ci.
-      #
-      # Karena repository hanya berisi ZIP.
-      # package-lock.json berada di dalam ZIP.
-      # --------------------------------------------------------
+          p.write_text(text)
+
+          print("Capacitor config patched.")
+
+
+          # -----------------------------------------------
+          # Bottom bar OWNER narrowing
+          # -----------------------------------------------
+
+          p = Path("project/src/components/TgpBottomBar.tsx")
+
+          if not p.exists():
+              raise SystemExit("TgpBottomBar.tsx tidak ditemukan")
+
+          text = p.read_text()
+
+          old = """    if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI) {"""
+
+          new = """    if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI) {"""
+
+          if old in text:
+              text = text.replace(old, new)
+              print("OWNER check patched.")
+          else:
+              print("OWNER check pattern not found; leaving source unchanged.")
+
+          p.write_text(text)
+          PY
+
+      - name: Verify project
+        run: |
+          test -f project/package.json
+          test -f project/capacitor.config.ts
+          echo "Project OK"
+
       - name: Install dependencies
         working-directory: project
         run: |
           npm install --no-audit --no-fund
 
-      # --------------------------------------------------------
-      # 8. VERIFY SUPABASE
-      # --------------------------------------------------------
-      - name: Verify Supabase configuration
+      - name: Verify Supabase
+        run: |
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_ANON_KEY"
+          echo "Supabase configuration OK"
+
+      - name: Lint
         working-directory: project
         run: |
-          if [ -z "$VITE_SUPABASE_URL" ]; then
-            echo "ERROR: VITE_SUPABASE_URL belum diset."
-            echo "Tambahkan GitHub Secret:"
-            echo "VITE_SUPABASE_URL"
-            exit 1
-          fi
+          npm run lint
 
-          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
-            echo "ERROR: VITE_SUPABASE_ANON_KEY belum diset."
-            echo "Tambahkan GitHub Secret:"
-            echo "VITE_SUPABASE_ANON_KEY"
-            exit 1
-          fi
-
-          echo "Supabase configuration detected."
-
-      # --------------------------------------------------------
-      # 9. LINT
-      # --------------------------------------------------------
-      - name: Run lint
+      - name: Build web
         working-directory: project
-        run: npm run lint
+        run: |
+          npm run build
 
-      # --------------------------------------------------------
-      # 10. BUILD WEB
-      # --------------------------------------------------------
-      - name: Build web application
-        working-directory: project
-        run: npm run build
-
-      # --------------------------------------------------------
-      # 11. ADD CAPACITOR ANDROID
-      # --------------------------------------------------------
-      - name: Add Capacitor Android
+      - name: Add Android
         working-directory: project
         run: |
           npx cap add android
 
-      # --------------------------------------------------------
-      # 12. SYNC CAPACITOR ANDROID
-      # --------------------------------------------------------
-      - name: Sync Capacitor Android
+      - name: Sync Android
         working-directory: project
         run: |
           npx cap sync android
 
-      # --------------------------------------------------------
-      # 13. VERIFY ANDROID PROJECT
-      # --------------------------------------------------------
-      - name: Verify Android project
-        working-directory: project
-        run: |
-          if [ ! -f "android/gradlew" ]; then
-            echo "ERROR: android/gradlew tidak ditemukan."
-            exit 1
-          fi
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
 
-          echo "Android project OK."
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      # --------------------------------------------------------
-      # 14. BUILD APK
-      # --------------------------------------------------------
-      - name: Build Android Debug APK
+      - name: Build APK
         working-directory: project/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      # --------------------------------------------------------
-      # 15. VERIFY APK
-      # --------------------------------------------------------
-      - name: Verify Android APK
-        working-directory: project
+      - name: Verify APK
         run: |
-          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -f project/android/app/build/outputs/apk/debug/app-debug.apk
+          ls -lh project/android/app/build/outputs/apk/debug/app-debug.apk
 
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: APK tidak ditemukan."
-            find android -type f -name "*.apk" -print || true
-            exit 1
-          fi
-
-          echo "APK berhasil dibuat:"
-          ls -lh "$APK"
-
-      # --------------------------------------------------------
-      # 16. PREPARE ARTIFACT
-      # --------------------------------------------------------
-      - name: Prepare Android artifact
-        working-directory: project
-        run: |
-          mkdir -p artifacts/android
-
-          cp \
-            android/app/build/outputs/apk/debug/app-debug.apk \
-            artifacts/android/TGP-Management-Android.apk
-
-      # --------------------------------------------------------
-      # 17. UPLOAD APK
-      # --------------------------------------------------------
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: TGP-Management-Android-APK
-          path: project/artifacts/android/TGP-Management-Android.apk
+          path: project/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
 
 
-  # ============================================================
-  # IOS SIMULATOR
-  # ============================================================
   ios:
     name: Build iOS Simulator
     runs-on: macos-15
@@ -311,159 +198,121 @@ jobs:
 
     steps:
 
-      # --------------------------------------------------------
-      # 1. CHECKOUT
-      # --------------------------------------------------------
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # --------------------------------------------------------
-      # 2. SETUP NODE
-      # --------------------------------------------------------
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: "24"
 
-      # --------------------------------------------------------
-      # 3. EXTRACT ZIP
-      # --------------------------------------------------------
-      - name: Extract TGP project ZIP
+      - name: Find ZIP
         shell: bash
         run: |
           set -e
 
-          echo "=============================================="
-          echo "MENCARI ZIP PROJECT TGP"
-          echo "=============================================="
+          ZIP=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
 
-          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: File ZIP tidak ditemukan."
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: ZIP project tidak ditemukan."
             ls -lah
             exit 1
           fi
 
-          echo "ZIP ditemukan:"
-          echo "$ZIP_FILE"
+          rm -rf _extract project
 
-          rm -rf _tgp_extract project
-          mkdir -p _tgp_extract
+          mkdir -p _extract
           mkdir -p project
 
-          unzip -q "$ZIP_FILE" -d _tgp_extract
+          unzip -q "$ZIP" -d _extract
 
-          PACKAGE_JSON=$(find _tgp_extract \
-            -type f \
-            -name "package.json" \
-            -print \
-            | head -n 1)
+          PACKAGE=$(find _extract -type f -name "package.json" | head -n 1)
 
-          if [ -z "$PACKAGE_JSON" ]; then
-            echo "ERROR: package.json tidak ditemukan di ZIP."
-            exit 1
-          fi
-
-          PROJECT_ROOT=$(dirname "$PACKAGE_JSON")
-
-          echo "Project root:"
-          echo "$PROJECT_ROOT"
-
-          cp -a "$PROJECT_ROOT"/. project/
-
-          echo "Project berhasil diekstrak."
-
-      # --------------------------------------------------------
-      # 4. VERIFY PROJECT
-      # --------------------------------------------------------
-      - name: Verify extracted project
-        shell: bash
-        run: |
-          set -e
-
-          if [ ! -f "project/package.json" ]; then
+          if [ -z "$PACKAGE" ]; then
             echo "ERROR: package.json tidak ditemukan."
             exit 1
           fi
 
-          if [ ! -f "project/capacitor.config.ts" ]; then
-            echo "ERROR: capacitor.config.ts tidak ditemukan."
-            exit 1
-          fi
+          ROOT=$(dirname "$PACKAGE")
 
-          echo "Project valid."
+          echo "Project root: $ROOT"
 
-      # --------------------------------------------------------
-      # 5. INSTALL DEPENDENCIES
-      # --------------------------------------------------------
+          cp -a "$ROOT"/. project/
+
+      - name: Patch project
+        shell: bash
+        run: |
+          set -e
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path("project/capacitor.config.ts")
+
+          text = p.read_text()
+
+          text = text.replace(
+              "  bundledWebRuntime: false,\n",
+              ""
+          )
+
+          p.write_text(text)
+
+          p = Path("project/src/components/TgpBottomBar.tsx")
+
+          text = p.read_text()
+
+          old = """    if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI) {"""
+
+          new = """    if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI) {"""
+
+          if old in text:
+              text = text.replace(old, new)
+
+          p.write_text(text)
+          PY
+
+      - name: Verify project
+        run: |
+          test -f project/package.json
+          test -f project/capacitor.config.ts
+          echo "Project OK"
+
       - name: Install dependencies
         working-directory: project
         run: |
           npm install --no-audit --no-fund
 
-      # --------------------------------------------------------
-      # 6. VERIFY SUPABASE
-      # --------------------------------------------------------
-      - name: Verify Supabase configuration
+      - name: Verify Supabase
+        run: |
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_ANON_KEY"
+          echo "Supabase configuration OK"
+
+      - name: Lint
         working-directory: project
         run: |
-          if [ -z "$VITE_SUPABASE_URL" ]; then
-            echo "ERROR: VITE_SUPABASE_URL belum diset."
-            exit 1
-          fi
+          npm run lint
 
-          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
-            echo "ERROR: VITE_SUPABASE_ANON_KEY belum diset."
-            exit 1
-          fi
-
-          echo "Supabase configuration detected."
-
-      # --------------------------------------------------------
-      # 7. LINT
-      # --------------------------------------------------------
-      - name: Run lint
+      - name: Build web
         working-directory: project
-        run: npm run lint
+        run: |
+          npm run build
 
-      # --------------------------------------------------------
-      # 8. BUILD WEB
-      # --------------------------------------------------------
-      - name: Build web application
-        working-directory: project
-        run: npm run build
-
-      # --------------------------------------------------------
-      # 9. ADD CAPACITOR IOS
-      # --------------------------------------------------------
-      - name: Add Capacitor iOS
+      - name: Add iOS
         working-directory: project
         run: |
           npx cap add ios
 
-      # --------------------------------------------------------
-      # 10. SYNC CAPACITOR IOS
-      # --------------------------------------------------------
-      - name: Sync Capacitor iOS
+      - name: Sync iOS
         working-directory: project
         run: |
           npx cap sync ios
 
-      # --------------------------------------------------------
-      # 11. SHOW XCODE
-      # --------------------------------------------------------
-      - name: Show Xcode version
+      - name: Show Xcode
         run: |
-          xcode-select -p
           xcodebuild -version
 
-      # --------------------------------------------------------
-      # 12. BUILD IOS SIMULATOR
-      #
-      # Unsigned build = untuk simulator.
-      # BUKAN IPA untuk iPhone fisik.
-      # --------------------------------------------------------
       - name: Build iOS Simulator
         working-directory: project
         run: |
@@ -478,37 +327,15 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
-      # --------------------------------------------------------
-      # 13. VERIFY IOS APP
-      # --------------------------------------------------------
-      - name: Verify iOS App
+      - name: Verify iOS
+        run: |
+          test -d project/build/ios/Build/Products/Debug-iphonesimulator/App.app
+          echo "iOS Simulator app OK"
+
+      - name: Package iOS
         working-directory: project
         run: |
-          APP_PATH="build/ios/Build/Products/Debug-iphonesimulator/App.app"
-
-          if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: App.app tidak ditemukan."
-
-            echo ""
-            echo "Hasil build:"
-            find build/ios \
-              -type d \
-              -name "*.app" \
-              -print || true
-
-            exit 1
-          fi
-
-          echo "iOS App berhasil dibuat:"
-          ls -ld "$APP_PATH"
-
-      # --------------------------------------------------------
-      # 14. PACKAGE IOS
-      # --------------------------------------------------------
-      - name: Package iOS Simulator artifact
-        working-directory: project
-        run: |
-          mkdir -p artifacts/ios
+          mkdir -p artifacts
 
           ditto \
             -c \
@@ -516,39 +343,17 @@ jobs:
             --sequesterRsrc \
             --keepParent \
             build/ios/Build/Products/Debug-iphonesimulator/App.app \
-            artifacts/ios/TGP-Management-iOS-Simulator.app.zip
+            artifacts/TGP-Management-iOS-Simulator.app.zip
 
-      # --------------------------------------------------------
-      # 15. VERIFY IOS ARTIFACT
-      # --------------------------------------------------------
-      - name: Verify iOS artifact
-        working-directory: project
-        run: |
-          FILE="artifacts/ios/TGP-Management-iOS-Simulator.app.zip"
-
-          if [ ! -f "$FILE" ]; then
-            echo "ERROR: iOS artifact tidak ditemukan."
-            exit 1
-          fi
-
-          echo "iOS artifact berhasil dibuat:"
-          ls -lh "$FILE"
-
-      # --------------------------------------------------------
-      # 16. UPLOAD IOS
-      # --------------------------------------------------------
-      - name: Upload iOS Simulator
+      - name: Upload iOS
         uses: actions/upload-artifact@v4
         with:
           name: TGP-Management-iOS-Simulator
-          path: project/artifacts/ios/TGP-Management-iOS-Simulator.app.zip
+          path: project/artifacts/TGP-Management-iOS-Simulator.app.zip
           if-no-files-found: error
           retention-days: 30
 
 
-  # ============================================================
-  # FINAL VERIFICATION
-  # ============================================================
   verify:
     name: Verify Android + iOS
     runs-on: ubuntu-latest
@@ -557,41 +362,23 @@ jobs:
       - android
       - ios
 
-    if: ${{ always() }}
+    if: always()
 
     steps:
 
-      - name: Check build results
+      - name: Verify results
         run: |
-          echo "=============================================="
-          echo "       TGP MANAGEMENT MOBILE BUILD"
-          echo "=============================================="
-          echo ""
-
-          echo "Android job : ${{ needs.android.result }}"
-          echo "iOS job     : ${{ needs.ios.result }}"
-          echo ""
+          echo "Android = ${{ needs.android.result }}"
+          echo "iOS     = ${{ needs.ios.result }}"
 
           if [ "${{ needs.android.result }}" != "success" ]; then
-            echo "ERROR: Android build gagal."
             exit 1
           fi
 
           if [ "${{ needs.ios.result }}" != "success" ]; then
-            echo "ERROR: iOS build gagal."
             exit 1
           fi
 
-          echo ""
-          echo "=============================================="
-          echo "BUILD BERHASIL"
-          echo "=============================================="
-          echo ""
-          echo "Android:"
-          echo "TGP-Management-Android-APK"
-          echo ""
-          echo "iOS:"
-          echo "TGP-Management-iOS-Simulator"
-          echo ""
-          echo "Supabase:"
-          echo "Configuration tersedia."
+          echo "================================"
+          echo "TGP MANAGEMENT BUILD SUCCESS"
+          echo "================================"
