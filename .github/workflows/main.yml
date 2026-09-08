@@ -6,83 +6,252 @@ on:
       - main
       - master
 
+  pull_request:
+    branches:
+      - main
+      - master
+
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: tgp-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24
+
 jobs:
+
+  # ============================================================
+  # ANDROID
+  # ============================================================
   android:
     name: Build Android APK
     runs-on: ubuntu-latest
 
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
     steps:
-      - name: Checkout
+
+      # --------------------------------------------------------
+      # CHECKOUT
+      # --------------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------------
+      # NODE.JS
+      # --------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build web application
-        run: npm run build
-
-      - name: Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: Setup Java
+      # --------------------------------------------------------
+      # JAVA
+      # --------------------------------------------------------
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: '21'
           cache: gradle
 
-      - name: Make Gradle executable
-        run: chmod +x android/gradlew
+      # --------------------------------------------------------
+      # ANDROID SDK
+      # --------------------------------------------------------
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Build Android APK
+      # --------------------------------------------------------
+      # INSTALL DEPENDENCIES
+      #
+      # IMPORTANT:
+      # Project hanya memiliki bun.lock,
+      # bukan package-lock.json.
+      # Karena itu JANGAN menggunakan npm ci.
+      # --------------------------------------------------------
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # --------------------------------------------------------
+      # CHECK SUPABASE CONFIG
+      # --------------------------------------------------------
+      - name: Verify Supabase configuration
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "ERROR: VITE_SUPABASE_URL belum diset."
+            echo "Tambahkan di GitHub:"
+            echo "Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
+          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "ERROR: VITE_SUPABASE_ANON_KEY belum diset."
+            echo "Tambahkan di GitHub:"
+            echo "Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
+          echo "Supabase configuration OK."
+
+      # --------------------------------------------------------
+      # TYPE CHECK
+      # --------------------------------------------------------
+      - name: Type check
+        run: npm run lint
+
+      # --------------------------------------------------------
+      # BUILD WEB APP
+      # --------------------------------------------------------
+      - name: Build web application
+        run: npm run build
+
+      # --------------------------------------------------------
+      # ADD ANDROID CAPACITOR
+      # --------------------------------------------------------
+      - name: Add Android platform
+        run: npx cap add android
+
+      # --------------------------------------------------------
+      # SYNC CAPACITOR ANDROID
+      # --------------------------------------------------------
+      - name: Sync Android
+        run: npx cap sync android
+
+      # --------------------------------------------------------
+      # BUILD APK
+      # --------------------------------------------------------
+      - name: Build Android Debug APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
-      - name: Rename APK
+      # --------------------------------------------------------
+      # VERIFY APK
+      # --------------------------------------------------------
+      - name: Verify Android APK
+        run: |
+          if [ ! -f android/app/build/outputs/apk/debug/app-debug.apk ]; then
+            echo "ERROR: APK tidak ditemukan."
+            exit 1
+          fi
+
+          ls -lh android/app/build/outputs/apk/debug/app-debug.apk
+
+      # --------------------------------------------------------
+      # PREPARE ARTIFACT
+      # --------------------------------------------------------
+      - name: Prepare Android artifact
         run: |
           mkdir -p artifacts/android
-          cp android/app/build/outputs/apk/debug/app-debug.apk \
-             artifacts/android/TGP-Management-Android.apk
 
+          cp \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            artifacts/android/TGP-Management-Android.apk
+
+      # --------------------------------------------------------
+      # UPLOAD APK
+      # --------------------------------------------------------
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: TGP-Management-Android-APK
           path: artifacts/android/TGP-Management-Android.apk
-          retention-days: 14
+          if-no-files-found: error
+          retention-days: 30
 
 
+  # ============================================================
+  # IOS
+  # ============================================================
   ios:
     name: Build iOS Simulator
     runs-on: macos-15
 
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
     steps:
-      - name: Checkout
+
+      # --------------------------------------------------------
+      # CHECKOUT
+      # --------------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------------
+      # NODE.JS
+      # --------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: ${{ env.NODE_VERSION }}
 
+      # --------------------------------------------------------
+      # INSTALL DEPENDENCIES
+      # --------------------------------------------------------
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
+      # --------------------------------------------------------
+      # CHECK SUPABASE
+      # --------------------------------------------------------
+      - name: Verify Supabase configuration
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "ERROR: VITE_SUPABASE_URL belum diset."
+            exit 1
+          fi
+
+          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "ERROR: VITE_SUPABASE_ANON_KEY belum diset."
+            exit 1
+          fi
+
+          echo "Supabase configuration OK."
+
+      # --------------------------------------------------------
+      # TYPE CHECK
+      # --------------------------------------------------------
+      - name: Type check
+        run: npm run lint
+
+      # --------------------------------------------------------
+      # BUILD WEB APP
+      # --------------------------------------------------------
       - name: Build web application
         run: npm run build
 
-      - name: Sync Capacitor iOS
+      # --------------------------------------------------------
+      # ADD IOS CAPACITOR
+      # --------------------------------------------------------
+      - name: Add iOS platform
+        run: npx cap add ios
+
+      # --------------------------------------------------------
+      # SYNC IOS
+      # --------------------------------------------------------
+      - name: Sync iOS
         run: npx cap sync ios
 
+      # --------------------------------------------------------
+      # SHOW XCODE
+      # --------------------------------------------------------
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+
+      # --------------------------------------------------------
+      # BUILD IOS SIMULATOR
+      # --------------------------------------------------------
       - name: Build iOS Simulator
         run: |
           xcodebuild \
@@ -96,48 +265,103 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
-      - name: Package iOS Simulator App
+      # --------------------------------------------------------
+      # VERIFY IOS APP
+      # --------------------------------------------------------
+      - name: Verify iOS App
         run: |
-          mkdir -p artifacts/ios
-
-          APP_PATH=$(find build/ios/Build/Products \
-            -type d \
-            -name "App.app" \
-            | head -n 1)
-
-          if [ -z "$APP_PATH" ]; then
-            echo "ERROR: App.app tidak ditemukan"
+          if [ ! -d "build/ios/Build/Products/Debug-iphonesimulator/App.app" ]; then
+            echo "ERROR: App.app tidak ditemukan."
+            find build/ios -type d -name "*.app" -print || true
             exit 1
           fi
 
-          ditto -c -k --sequesterRsrc --keepParent \
-            "$APP_PATH" \
+          echo "iOS App ditemukan."
+
+      # --------------------------------------------------------
+      # PACKAGE IOS
+      # --------------------------------------------------------
+      - name: Package iOS Simulator
+        run: |
+          mkdir -p artifacts/ios
+
+          ditto \
+            -c \
+            -k \
+            --sequesterRsrc \
+            --keepParent \
+            build/ios/Build/Products/Debug-iphonesimulator/App.app \
             artifacts/ios/TGP-Management-iOS-Simulator.app.zip
 
-      - name: Upload iOS Simulator Artifact
+      # --------------------------------------------------------
+      # VERIFY IOS ARTIFACT
+      # --------------------------------------------------------
+      - name: Verify iOS artifact
+        run: |
+          if [ ! -f "artifacts/ios/TGP-Management-iOS-Simulator.app.zip" ]; then
+            echo "ERROR: iOS artifact tidak ditemukan."
+            exit 1
+          fi
+
+          ls -lh artifacts/ios/
+
+      # --------------------------------------------------------
+      # UPLOAD IOS
+      # --------------------------------------------------------
+      - name: Upload iOS Simulator
         uses: actions/upload-artifact@v4
         with:
           name: TGP-Management-iOS-Simulator
           path: artifacts/ios/TGP-Management-iOS-Simulator.app.zip
-          retention-days: 14
+          if-no-files-found: error
+          retention-days: 30
 
 
+  # ============================================================
+  # FINAL VERIFICATION
+  # ============================================================
   verify:
-    name: Verify Project
+    name: Verify Mobile Builds
     runs-on: ubuntu-latest
+
     needs:
       - android
       - ios
 
+    if: ${{ always() }}
+
     steps:
-      - name: Build completed
+
+      - name: Verify build results
         run: |
-          echo "===================================="
-          echo " TGP MANAGEMENT MOBILE BUILD SUCCESS "
-          echo "===================================="
+          echo "=============================================="
+          echo "       TGP MANAGEMENT MOBILE BUILD"
+          echo "=============================================="
           echo ""
-          echo "Android artifact:"
+
+          echo "Android: ${{ needs.android.result }}"
+          echo "iOS:     ${{ needs.ios.result }}"
+          echo ""
+
+          if [ "${{ needs.android.result }}" != "success" ]; then
+            echo "ANDROID BUILD FAILED"
+            exit 1
+          fi
+
+          if [ "${{ needs.ios.result }}" != "success" ]; then
+            echo "IOS BUILD FAILED"
+            exit 1
+          fi
+
+          echo ""
+          echo "=============================================="
+          echo "ALL MOBILE BUILDS SUCCESSFUL"
+          echo "=============================================="
+          echo ""
+          echo "Artifact 1:"
           echo "TGP-Management-Android-APK"
           echo ""
-          echo "iOS artifact:"
+          echo "Artifact 2:"
           echo "TGP-Management-iOS-Simulator"
+          echo ""
+          echo "Supabase configuration: OK"
