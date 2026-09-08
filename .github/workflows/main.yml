@@ -3,8 +3,6 @@ name: TGP Management - Android, iOS Simulator & PWA
 on:
   push:
     branches: [main, master]
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -34,16 +32,9 @@ jobs:
           }
 
           rm -rf extracted project
-
           unzip -q "$ZIP_FILE" -d extracted
 
-          PACKAGE_DIR="$(
-            find extracted \
-              -type f \
-              -name package.json \
-              -printf '%h\n' \
-              | head -n 1
-          )"
+          PACKAGE_DIR="$(find extracted -type f -name package.json -printf '%h\n' | head -n 1)"
 
           test -n "$PACKAGE_DIR" || {
             echo "package.json not found inside ZIP"
@@ -59,14 +50,13 @@ jobs:
           path: project
           retention-days: 1
 
-  # =========================================================
-  # PWA / WEB - UNTUK IPHONE TANPA APPLE DEVELOPER
-  # =========================================================
-
   web-pwa:
-    name: PWA Web Artifact
+    name: Build & Deploy PWA to GitHub Pages
     needs: prepare
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -87,23 +77,23 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          p = Path("capacitor.config.ts")
+          p = Path('capacitor.config.ts')
           if p.exists():
-              text = p.read_text()
-              text = text.replace(
-                  "  bundledWebRuntime: false,\n",
-                  ""
+              p.write_text(
+                  p.read_text().replace(
+                      '  bundledWebRuntime: false,\n',
+                      ''
+                  )
               )
-              p.write_text(text)
 
-          p = Path("src/components/TgpBottomBar.tsx")
+          p = Path('src/components/TgpBottomBar.tsx')
           if p.exists():
-              text = p.read_text()
-              text = text.replace(
-                  "if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)",
-                  "if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)"
+              p.write_text(
+                  p.read_text().replace(
+                      'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
+                      'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
+                  )
               )
-              p.write_text(text)
           PY
 
       - name: Install dependencies
@@ -121,7 +111,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Verify PWA output
+      - name: Verify PWA
         working-directory: project
         run: |
           test -f dist/index.html
@@ -129,17 +119,30 @@ jobs:
           test -f dist/sw.js
           test -f dist/icons/icon-192.png
           test -f dist/icons/icon-512.png
+          touch dist/.nojekyll
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
         with:
-          name: TGP-Management-PWA-Web
           path: project/dist
-          if-no-files-found: error
-          retention-days: 30
 
-  # =========================================================
-  # ANDROID APK
-  # =========================================================
+  deploy-pages:
+    name: Deploy PWA
+    needs: web-pwa
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
 
   android:
     name: Android APK
@@ -161,7 +164,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: '21'
 
       - uses: android-actions/setup-android@v3
 
@@ -172,23 +175,23 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          p = Path("capacitor.config.ts")
+          p = Path('capacitor.config.ts')
           if p.exists():
-              text = p.read_text()
-              text = text.replace(
-                  "  bundledWebRuntime: false,\n",
-                  ""
+              p.write_text(
+                  p.read_text().replace(
+                      '  bundledWebRuntime: false,\n',
+                      ''
+                  )
               )
-              p.write_text(text)
 
-          p = Path("src/components/TgpBottomBar.tsx")
+          p = Path('src/components/TgpBottomBar.tsx')
           if p.exists():
-              text = p.read_text()
-              text = text.replace(
-                  "if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)",
-                  "if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)"
+              p.write_text(
+                  p.read_text().replace(
+                      'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
+                      'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
+                  )
               )
-              p.write_text(text)
           PY
 
       - name: Install dependencies
@@ -222,9 +225,7 @@ jobs:
         working-directory: project
         run: |
           mkdir -p artifacts
-
-          cp \
-            android/app/build/outputs/apk/debug/app-debug.apk \
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
             artifacts/TGP-Management-Android.apk
 
       - uses: actions/upload-artifact@v4
@@ -233,10 +234,6 @@ jobs:
           path: project/artifacts/TGP-Management-Android.apk
           if-no-files-found: error
           retention-days: 30
-
-  # =========================================================
-  # IOS SIMULATOR
-  # =========================================================
 
   ios:
     name: iOS Simulator App
@@ -266,23 +263,23 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          p = Path("capacitor.config.ts")
+          p = Path('capacitor.config.ts')
           if p.exists():
-              text = p.read_text()
-              text = text.replace(
-                  "  bundledWebRuntime: false,\n",
-                  ""
+              p.write_text(
+                  p.read_text().replace(
+                      '  bundledWebRuntime: false,\n',
+                      ''
+                  )
               )
-              p.write_text(text)
 
-          p = Path("src/components/TgpBottomBar.tsx")
+          p = Path('src/components/TgpBottomBar.tsx')
           if p.exists():
-              text = p.read_text()
-              text = text.replace(
-                  "if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)",
-                  "if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)"
+              p.write_text(
+                  p.read_text().replace(
+                      'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
+                      'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
+                  )
               )
-              p.write_text(text)
           PY
 
       - name: Lint and build
@@ -324,15 +321,15 @@ jobs:
           set -euo pipefail
 
           if [ -f ios/App/App.xcworkspace/contents.xcworkspacedata ]; then
-            echo "kind=workspace" >> "$GITHUB_OUTPUT"
-            echo "path=ios/App/App.xcworkspace" >> "$GITHUB_OUTPUT"
+            echo 'kind=workspace' >> "$GITHUB_OUTPUT"
+            echo 'path=ios/App/App.xcworkspace' >> "$GITHUB_OUTPUT"
 
           elif [ -f ios/App/App.xcodeproj/project.pbxproj ]; then
-            echo "kind=project" >> "$GITHUB_OUTPUT"
-            echo "path=ios/App/App.xcodeproj" >> "$GITHUB_OUTPUT"
+            echo 'kind=project' >> "$GITHUB_OUTPUT"
+            echo 'path=ios/App/App.xcodeproj' >> "$GITHUB_OUTPUT"
 
           else
-            echo "No iOS workspace or Xcode project found"
+            echo 'No iOS workspace or Xcode project found'
             exit 1
           fi
 
@@ -340,20 +337,13 @@ jobs:
         working-directory: project
         shell: bash
         run: |
-          if [ "${{ steps.iospath.outputs.kind }}" = "workspace" ]; then
-            TARGET=(
-              -workspace
-              "${{ steps.iospath.outputs.path }}"
-            )
+          if [ '${{ steps.iospath.outputs.kind }}' = 'workspace' ]; then
+            TARGET=(-workspace '${{ steps.iospath.outputs.path }}')
           else
-            TARGET=(
-              -project
-              "${{ steps.iospath.outputs.path }}"
-            )
+            TARGET=(-project '${{ steps.iospath.outputs.path }}')
           fi
 
-          xcodebuild \
-            "${TARGET[@]}" \
+          xcodebuild "${TARGET[@]}" \
             -scheme App \
             -configuration Debug \
             -sdk iphonesimulator \
@@ -370,8 +360,7 @@ jobs:
           test -d \
             build/ios-derived-data/Build/Products/Debug-iphonesimulator/App.app
 
-          ditto \
-            -c -k \
+          ditto -c -k \
             --sequesterRsrc \
             --keepParent \
             build/ios-derived-data/Build/Products/Debug-iphonesimulator/App.app \
@@ -384,26 +373,18 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # =========================================================
-  # FINAL VERIFICATION
-  # =========================================================
-
   verify:
     name: Final Verification
     needs:
-      - web-pwa
+      - deploy-pages
       - android
       - ios
-
     runs-on: ubuntu-latest
 
     steps:
       - name: Report
         run: |
-          echo "========================================"
           echo "TGP MANAGEMENT BUILD SUCCESS"
-          echo "========================================"
           echo "Android APK: SUCCESS"
           echo "iOS Simulator: SUCCESS"
-          echo "PWA Web: SUCCESS"
-          echo "========================================"
+          echo "PWA GitHub Pages: SUCCESS"
