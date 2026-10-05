@@ -191,13 +191,13 @@ if employee_screen.exists():
             "    createStaff,\n    resetUserPassword,\n    userMessage,",
             1,
         )
-        old_row = """                <button key={u.userId} onClick={() => setSelectedEmployeeId(u.userId)} className={\`w-full text-left p-3.5 rounded-2xl border \${selectedEmployeeId === u.userId ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50'}\`}>
+        old_row = """                <button key={u.userId} onClick={() => setSelectedEmployeeId(u.userId)} className={`w-full text-left p-3.5 rounded-2xl border ${selectedEmployeeId === u.userId ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50'}`}>
                   <div className="flex items-center justify-between gap-3">
                     <div><p className="font-bold text-xs text-slate-900">{u.fullName}</p><p className="text-[10px] text-slate-500">{u.username} • {u.department || 'OPERASIONAL_UMUM'}</p></div>
                     <span className="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-white border border-slate-200">{u.role}</span>
                   </div>
                 </button>"""
-        new_row = """                <div key={u.userId} onClick={() => setSelectedEmployeeId(u.userId)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedEmployeeId(u.userId); }} className={\`w-full text-left p-3.5 rounded-2xl border \${selectedEmployeeId === u.userId ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50'}\`}>
+        new_row = """                <div key={u.userId} onClick={() => setSelectedEmployeeId(u.userId)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedEmployeeId(u.userId); }} className={`w-full text-left p-3.5 rounded-2xl border ${selectedEmployeeId === u.userId ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50'}`}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0"><p className="font-bold text-xs text-slate-900">{u.fullName}</p><p className="text-[10px] text-slate-500 break-all">{u.username} • {u.department || 'OPERASIONAL_UMUM'}</p></div>
                     <div className="flex items-center gap-2 shrink-0">
