@@ -179,8 +179,6 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
-
       - name: Patch known type issues
         working-directory: project
         shell: bash
