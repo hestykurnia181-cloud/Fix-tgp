@@ -30,7 +30,6 @@ fn = """  const resetUserPassword = async (userId: string, newPassword: string, 
         targetRole === UserRole.STAFF ||
         targetRole === UserRole.KASIR ||
         targetRole === UserRole.WAREHOUSE ||
-        targetRole === UserRole.LEADER ||
         targetRole === UserRole.ADMIN_DIVISI;
       const actorBusinessIds = new Set<string>([
         ...(actor.assignedBusinessIds || []),
