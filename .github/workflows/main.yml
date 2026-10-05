@@ -48,7 +48,13 @@ jobs:
         with:
           name: TGP-normalized-source
           path: project
-          retention-days: 1
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TGP-inspected-source
+          path: project
+          retention-days: 7
 
   web-pwa:
     name: Build & Deploy PWA to GitHub Pages
