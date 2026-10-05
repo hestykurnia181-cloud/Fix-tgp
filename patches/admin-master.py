@@ -175,6 +175,62 @@ if "Detail Akun Pengguna" not in s:
 ui.write_text(s)
 
 
+
+# Admin Owner Karyawan screen: explicit patch for the existing employees list.
+employee_screen = root / "src/screens/EmployeeManagementScreen.tsx"
+if employee_screen.exists():
+    t = employee_screen.read_text()
+    if "btn_admin_owner_employee_password" not in t:
+        t = t.replace(
+            "import { CalendarCheck, Plus, Users, UserPlus, Clock3, ShieldCheck } from 'lucide-react';",
+            "import { CalendarCheck, Plus, Users, UserPlus, Clock3, ShieldCheck, KeyRound } from 'lucide-react';",
+            1,
+        )
+        t = t.replace(
+            "    createStaff,\n    userMessage,",
+            "    createStaff,\n    resetUserPassword,\n    userMessage,",
+            1,
+        )
+        old_row = """                <button key={u.userId} onClick={() => setSelectedEmployeeId(u.userId)} className={\`w-full text-left p-3.5 rounded-2xl border \${selectedEmployeeId === u.userId ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50'}\`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div><p className="font-bold text-xs text-slate-900">{u.fullName}</p><p className="text-[10px] text-slate-500">{u.username} • {u.department || 'OPERASIONAL_UMUM'}</p></div>
+                    <span className="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-white border border-slate-200">{u.role}</span>
+                  </div>
+                </button>"""
+        new_row = """                <div key={u.userId} onClick={() => setSelectedEmployeeId(u.userId)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedEmployeeId(u.userId); }} className={\`w-full text-left p-3.5 rounded-2xl border \${selectedEmployeeId === u.userId ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50'}\`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0"><p className="font-bold text-xs text-slate-900">{u.fullName}</p><p className="text-[10px] text-slate-500 break-all">{u.username} • {u.department || 'OPERASIONAL_UMUM'}</p></div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-white border border-slate-200">{u.role}</span>
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const nextPassword = window.prompt('Password baru untuk ' + u.username + '\\nMinimal 6 karakter:');
+                            if (nextPassword === null) return;
+                            if (nextPassword.length < 6) { window.alert('Password baru minimal 6 karakter.'); return; }
+                            const confirmPassword = window.prompt('Ulangi password baru:');
+                            if (confirmPassword === null) return;
+                            const ok = await resetUserPassword(u.userId, nextPassword, confirmPassword);
+                            if (ok) window.alert('Password karyawan ' + u.username + ' berhasil diperbarui.');
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-extrabold inline-flex items-center gap-1"
+                          data-testid={"btn_admin_owner_employee_password_" + u.userId}
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          Ganti Password
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>"""
+        if old_row not in t:
+            raise RuntimeError("EmployeeManagementScreen row pattern not found")
+        t = t.replace(old_row, new_row, 1)
+        employee_screen.write_text(t)
+        print("Admin Owner employee password UI patched:", employee_screen)
+
 # Admin Owner: add a password action to the Karyawan list.
 for screen in (root / "src/screens").rglob("*.tsx"):
     try:
