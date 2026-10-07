@@ -2,7 +2,7 @@ name: TGP Management - Android, iOS Simulator & PWA
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, fix/cross-platform-sync]
   workflow_dispatch:
 
 permissions:
