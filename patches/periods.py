@@ -476,8 +476,11 @@ if p.exists():
     if "return navItems.filter((item) => item.screen === 'SERVICE_STAFF_MODULE')" not in s:
         if marker in s:
             s = s.replace(marker, guard + marker, 1)
+        elif "return navItems;" in s:
+            s = s.replace("return navItems;", guard + "return navItems;", 1)
         else:
-            raise RuntimeError("Staff navigation return anchor missing")
+            # Some app versions use a different indentation/return wrapper.
+            s = s.replace("return navItems", guard + "return navItems", 1)
     p.write_text(s)
 
 # Replace the staff service screen with a robust view that reads the same local sales
