@@ -8,6 +8,7 @@ def rep(path, old, new, label):
         raise RuntimeError(label)
     path.write_text(s.replace(old, new, 1))
 
+# Keep the existing Sky Barbershop assignment/sync hardening from this patch.
 staff = ROOT / "src/screens/ServiceStaffScreen.tsx"
 s = staff.read_text()
 old = """   const identityKeys=new Set([user.userId,user.username,user.fullName,...users.filter((u:any)=>u.role===UserRole.STAFF&&String(u.businessId||'')===String(activeBusiness.businessId)).flatMap((u:any)=>[u.userId,u.username,u.fullName])].filter(Boolean).map(normalizeIdentity));
@@ -16,7 +17,6 @@ new = """   const freshUser=users.find((u:any)=>String(u.userId)===String(user.u
    const identityKeys=new Set([freshUser.userId,freshUser.username,freshUser.fullName].filter(Boolean).map(normalizeIdentity));
    const matches=(value:any)=>identityKeys.has(normalizeIdentity(value));"""
 rep(staff, old, new, "Staff identity isolation anchor not found")
-
 old = """     const items=Array.isArray(sale.items)?sale.items:[];
      return items.flatMap((item:any)=>{
        const itemAssigned=matches(item.serviceStaffId)||matches(item.staffId)||matches(item.assignedStaffId)||matches(item.serviceStaffName)||matches(item.assignedStaffName)||matches(item.serviceStaff?.userId)||matches(item.serviceStaff?.username)||matches(item.serviceStaff?.fullName)||matches(item.staff?.userId)||matches(item.staff?.username)||matches(item.staff?.fullName);"""
@@ -36,7 +36,6 @@ rep(ctx,
       (u.businessId === activeBusinessId || (u.assignedBusinessIds || []).includes(activeBusinessId)) &&
       normalizeUserRole(u.role) === UserRole.STAFF""",
 "Service assignment role validation anchor not found")
-
 rep(ctx,
 """    if (activeBiz?.templateType === BusinessTemplate.SERVICE) {
       // Backward compatibility: bila hanya ada satu jasa yang dibuat sebelum fitur per-item, gunakan pilihan checkout sebagai fallback.""",
@@ -60,7 +59,6 @@ rep(ctx,
       }
       // Legacy checkout parameter is retained only for compatibility.""",
 "Service checkout validation anchor not found")
-
 rep(ctx,
 """      // Petugas jasa bersifat opsional. Jika tidak dipilih, tidak ada komisi
       // yang dipotong dan seluruh nilai jasa menjadi bagian bisnis.
@@ -116,4 +114,37 @@ for old, new in [
     q = q.replace(old, new)
 sync.write_text(q)
 
-print("SKY BARBERSHOP FINAL LOGIC PATCH APPLIED")
+# Deployment environment is authoritative when present. This prevents an old
+# browser localStorage Supabase project from hijacking the live web app.
+sup = ROOT / "src/lib/supabase.ts"
+ss = sup.read_text()
+old_cfg = """  if (typeof window !== 'undefined') {
+    const localUrl = localStorage.getItem('tgp_supabase_url');
+    const localKey = localStorage.getItem('tgp_supabase_anon_key');
+    if (localUrl && localKey && localUrl.trim().length > 0 && localKey.trim().length > 0) {
+      return { url: localUrl.trim(), anonKey: localKey.trim(), source: 'LOCAL' };
+    }
+  }
+
+  if (envUrl && envKey && envUrl.trim().length > 0 && envKey.trim().length > 0) {
+    return { url: envUrl.trim(), anonKey: envKey.trim(), source: 'ENV' };
+  }"""
+new_cfg = """  // A deployed build must use its configured production Supabase.
+  // Browser localStorage may contain an old project from a previous setup;
+  // never let that silently override the deployment environment.
+  if (envUrl && envKey && envUrl.trim().length > 0 && envKey.trim().length > 0) {
+    return { url: envUrl.trim(), anonKey: envKey.trim(), source: 'ENV' };
+  }
+
+  if (typeof window !== 'undefined') {
+    const localUrl = localStorage.getItem('tgp_supabase_url');
+    const localKey = localStorage.getItem('tgp_supabase_anon_key');
+    if (localUrl && localKey && localUrl.trim().length > 0 && localKey.trim().length > 0) {
+      return { url: localUrl.trim(), anonKey: localKey.trim(), source: 'LOCAL' };
+    }
+  }"""
+if old_cfg not in ss:
+    raise RuntimeError("Supabase config priority anchor not found")
+sup.write_text(ss.replace(old_cfg, new_cfg, 1))
+
+print("Sky Barbershop assignment + production Supabase config priority patch applied")
