@@ -148,6 +148,35 @@ patch(ctx,
 patch(ctx,
 """  const checkoutPos = (""",
 """  const checkoutPos = async (""","async checkout implementation")
+patch(ctx,
+"""  checkout: (
+    paymentMethod: PaymentMethod,
+    stanIdOverride?: string | null,
+    paidAmount?: number,
+    discountInfo?: {
+      type?: 'PERCENT' | 'NOMINAL' | 'NONE';
+      value?: number;
+      amount?: number;
+      note?: string;
+      customerName?: string;
+    },
+    serviceStaffId?: string | null
+  ) => SaleOrderEntity | null;""",
+"""  checkout: (
+    paymentMethod: PaymentMethod,
+    stanIdOverride?: string | null,
+    paidAmount?: number,
+    discountInfo?: {
+      type?: 'PERCENT' | 'NOMINAL' | 'NONE';
+      value?: number;
+      amount?: number;
+      note?: string;
+      customerName?: string;
+    },
+    serviceStaffId?: string | null
+  ) => Promise<SaleOrderEntity | null>;""","async checkout alias contract")
+
+
 
 patch(ctx,
 """    setSales((prev) => [newSale, ...prev]);
