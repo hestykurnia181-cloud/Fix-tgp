@@ -6,7 +6,7 @@ pos=ROOT/'src/screens/PosScreen.tsx'
 s=pos.read_text()
 s,n=re.subn(r"const serviceProviders = allStaffForActiveBusiness\.filter\(\(user\) =>[\s\S]*?\);", "const serviceProviders = allStaffForActiveBusiness.filter((user) => normalizeUserRole(user.role) === UserRole.STAFF).sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'id'));", s, count=1)
 if n!=1: raise RuntimeError('Sky POS provider list not found')
-s,n=re.subn(r"!\[UserRole\.MASTER, UserRole\\.OWNER, UserRole\\.ADMIN_OWNER, UserRole\\.ADMIN_DIVISI, UserRole\\.WAREHOUSE\\]\\.includes\\(normalizeUserRole\\(u\\.role\\)\\)", "normalizeUserRole(u.role) === UserRole.STAFF", s, count=1)
+s,n=re.subn(r"!\[UserRole\.MASTER[\s\S]*?\]\.includes\(normalizeUserRole\(u\.role\)\)", "normalizeUserRole(u.role) === UserRole.STAFF", s, count=1)
 if n!=1: raise RuntimeError('Sky POS staff validation not found')
 pos.write_text(s)
 
