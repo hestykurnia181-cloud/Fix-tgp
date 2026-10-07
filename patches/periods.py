@@ -621,9 +621,8 @@ p.write_text(s)
 
 
 # FINAL STAFF-ONLY GATE:
-# The previous navigation filtering was insufficient because the app can still
-# render the operational home screen directly. Patch the application root so
-# STAFF never reaches the POS/stock/home UI at all.
+# Force STAFF through a dedicated root screen. Use a uniquely named hook result so
+# this patch never references an undeclared currentSession variable.
 from pathlib import Path
 import re
 
@@ -639,63 +638,39 @@ if app is None:
 
 s = app.read_text()
 
-if "STAFF_ONLY_GATE_V1" not in s:
-    # Ensure imports exist.
+if "STAFF_ONLY_GATE_V2" not in s:
+    # Ensure the required imports exist without creating duplicate imports.
     if "ServiceStaffScreen" not in s:
         s = "import { ServiceStaffScreen } from './screens/ServiceStaffScreen';\n" + s
+    if "useTgp" not in s:
+        s = "import { useTgp } from './context/TgpContext';\n" + s
     if "UserRole" not in s:
-        # types import may be a named import or absent.
         s = "import { UserRole } from './types';\n" + s
 
-    # Find the component function and insert the gate immediately after its opening brace.
-    # Handle function App(), const App = () =>, and export default function App().
     patterns = [
         r"(function\s+App\s*\([^)]*\)\s*\{)",
         r"(const\s+App\s*=\s*\([^)]*\)\s*=>\s*\{)",
         r"(export\s+default\s+function\s+App\s*\([^)]*\)\s*\{)",
     ]
-    gate = """
-  // STAFF_ONLY_GATE_V1: staff is restricted to photo attendance + own service history.
-  const __staffOnly =
-    typeof currentSession !== 'undefined' &&
-    currentSession?.user?.role === UserRole.STAFF;
-  if (__staffOnly) {
-    return <ServiceStaffScreen />;
-  }
-"""
     inserted = False
-
-    # Prefer an existing currentSession variable from useTgp destructuring.
-    if re.search(r"currentSession\s*[,:]", s) or re.search(r"currentSession\s*\}", s):
-        for pat in patterns:
-            m = re.search(pat, s)
-            if m:
-                s = s[:m.end()] + gate + s[m.end():]
-                inserted = True
-                break
-
-    # Otherwise add useTgp import + hook if App doesn't already expose currentSession.
-    if not inserted:
-        if "useTgp" not in s:
-            s = "import { useTgp } from './context/TgpContext';\n" + s
-        for pat in patterns:
-            m = re.search(pat, s)
-            if m:
-                hook = """
-  const { currentSession } = useTgp();
-  // STAFF_ONLY_GATE_V1
-  if (currentSession?.user?.role === UserRole.STAFF) {
+    # Always use a uniquely named hook binding. This avoids depending on whether
+    # App already has a variable called currentSession.
+    hook = """
+  const { currentSession: __staffSession } = useTgp();
+  // STAFF_ONLY_GATE_V2
+  if (__staffSession?.user?.role === UserRole.STAFF) {
     return <ServiceStaffScreen />;
   }
 """
-                s = s[:m.end()] + hook + s[m.end():]
-                inserted = True
-                break
-
+    for pat in patterns:
+        m = re.search(pat, s)
+        if m:
+            s = s[:m.end()] + hook + s[m.end():]
+            inserted = True
+            break
     if not inserted:
         raise RuntimeError("Could not locate App component for STAFF-only gate")
-
     app.write_text(s)
-    print("STAFF-only root gate patched:", app)
+    print("STAFF-only root gate V2 patched:", app)
 else:
-    print("STAFF-only root gate already present:", app)
+    print("STAFF-only root gate V2 already present:", app)
