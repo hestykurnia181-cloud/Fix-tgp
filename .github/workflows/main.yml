@@ -52,6 +52,7 @@ jobs:
           python3 patches/admin-master.py
           python3 patches/periods.py
           python3 patches/sync.py
+          python3 patches/staff-sync-logout.py
 
       - uses: actions/upload-artifact@v4
         with:
