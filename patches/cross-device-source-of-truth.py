@@ -175,20 +175,28 @@ patch(ctx,
     }
     setLedgers((prev) => [newLedger, ...prev]);""","confirmed ledger write before local commit")
 
-patch(pos,
-"""  const handleCheckoutSubmit = async (e: React.FormEvent) => {""",
-"""  const handleCheckoutSubmit = (e: React.FormEvent) => {""","sync POS checkout handler")
+pos_block_old = """  const handleCheckoutSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cart.length === 0) return;
 
-patch(pos,
-"""    const sale = checkout(
-""",
-"""    void checkout(
-""","fire-and-forget promise explicitly void")
+    const paid = paymentMethod === 'TUNAI' ? parseFloat(nominalReceived) || finalCartTotal : finalCartTotal;
+    const pm = paymentMethod === 'TUNAI' ? PaymentMethod.CASH : (paymentMethod as PaymentMethod);
 
-# Convert the Promise result into the same success UI without making the
-# React form onSubmit callback itself async.
-patch(pos,
-"""    if (sale) {
+    const sale = checkout(
+      pm,
+      shouldUseStan && selectedOutletId ? selectedOutletId : undefined,
+      paid,
+      {
+        type: discountType,
+        value: numericDiscountVal,
+        amount: discountAmount,
+        note: discountNote.trim() || undefined,
+        customerName: customerName.trim() || undefined,
+      },
+      undefined
+    );
+
+    if (sale) {
       setIsCheckoutOpen(false);
       setCustomerName('');
       setNominalReceived('');
@@ -197,8 +205,29 @@ patch(pos,
       setDiscountNote('');
       setIsDiscountOpen(false);
       setCompletedSale(sale);
-    }""",
-"""    ).then((sale) => {
+    }
+  };"""
+
+pos_block_new = """  const handleCheckoutSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cart.length === 0) return;
+
+    const paid = paymentMethod === 'TUNAI' ? parseFloat(nominalReceived) || finalCartTotal : finalCartTotal;
+    const pm = paymentMethod === 'TUNAI' ? PaymentMethod.CASH : (paymentMethod as PaymentMethod);
+
+    void checkout(
+      pm,
+      shouldUseStan && selectedOutletId ? selectedOutletId : undefined,
+      paid,
+      {
+        type: discountType,
+        value: numericDiscountVal,
+        amount: discountAmount,
+        note: discountNote.trim() || undefined,
+        customerName: customerName.trim() || undefined,
+      },
+      undefined
+    ).then((sale) => {
       if (sale) {
         setIsCheckoutOpen(false);
         setCustomerName('');
@@ -209,7 +238,10 @@ patch(pos,
         setIsDiscountOpen(false);
         setCompletedSale(sale);
       }
-    });""","handle async checkout result")
+    });
+  };"""
+
+patch(pos, pos_block_old, pos_block_new, "POS checkout promise-safe handler")
 
 
 print("[cross-device] patch completed")
