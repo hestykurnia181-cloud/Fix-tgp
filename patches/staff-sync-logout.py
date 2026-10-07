@@ -33,7 +33,11 @@ if "const logout = () => {" not in s:
         raise RuntimeError("clearMessages anchor not found")
     s = s.replace(anchor, fn + anchor, 1)
 
-if re.search(r"\bactiveSales,\s*\n", s) and "        logout," not in s:
+if "  sales: SaleOrderEntity[];" not in s and "  activeSales: SaleOrderEntity[];" in s:
+    s = s.replace("  activeSales: SaleOrderEntity[];", "  sales: SaleOrderEntity[];\n  activeSales: SaleOrderEntity[];", 1)
+if "        sales," not in s and "        activeSales," in s:
+    s = s.replace("        activeSales,\n", "        sales,\n        activeSales,\n", 1)
+if "        logout," not in s and "        activeSales," in s:
     s = s.replace("        activeSales,\n", "        logout,\n        activeSales,\n", 1)
 
 ctx.write_text(s)
