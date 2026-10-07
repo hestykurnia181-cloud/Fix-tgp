@@ -247,6 +247,89 @@ must_replace("src/screens/FinanceScreen.tsx","""  const filteredLedgers = active
 must_replace("src/screens/FinanceScreen.tsx","""              Semua ({activeLedgers.length})""","""              Semua ({periodLedgers.length})""",1)
 
 
+
+# Service POS: completing a barbershop/service sale must not require a tenant,
+# outlet/stan selection, or a barber/staff assignment. Business context is taken
+# from the already-active business; staff assignment remains optional metadata.
+must_replace("src/screens/PosScreen.tsx",
+"""  const hasStanModule = activeBusiness?.activeModules.includes(BusinessModule.STAN_OUTLET);
+  const isServiceBusiness = activeBusiness?.templateType === BusinessTemplate.SERVICE;""",
+"""  const isServiceBusiness = activeBusiness?.templateType === BusinessTemplate.SERVICE;
+  const hasStanModule = activeBusiness?.activeModules.includes(BusinessModule.STAN_OUTLET);
+  const shouldUseStan = hasStanModule && !isServiceBusiness;""",1)
+
+must_replace("src/screens/PosScreen.tsx",
+"""        addToCart(quantityModalItem, validQty, hasStanModule ? selectedOutletId : undefined);""",
+"""        addToCart(quantityModalItem, validQty, shouldUseStan ? selectedOutletId : undefined);""",1)
+
+must_replace("src/screens/PosScreen.tsx",
+"""    const sale = checkout(
+      pm,
+      hasStanModule && selectedOutletId ? selectedOutletId : undefined,""",
+"""    const sale = checkout(
+      pm,
+      shouldUseStan && selectedOutletId ? selectedOutletId : undefined,""",1)
+
+must_replace("src/screens/PosScreen.tsx",
+"""        {hasStanModule && activeOutlets.length > 0 && (""",
+"""        {shouldUseStan && activeOutlets.length > 0 && (""",1)
+
+must_replace("src/screens/PosScreen.tsx",
+"""                    (isServiceBusiness && cart.some((c) => c.item.type === 'SERVICE' && !c.serviceStaffId))
+""",
+"""                    false
+""",1)
+
+must_replace("src/screens/PosScreen.tsx",
+"""                              <p className="text-[10px] text-slate-500">Pilih staff yang mengerjakan jasa ini.</p>""",
+"""                              <p className="text-[10px] text-slate-500">Petugas jasa opsional; transaksi tetap bisa diselesaikan tanpa memilih staff.</p>""",1)
+
+must_replace("src/screens/PosScreen.tsx",
+"""                              <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-white border border-blue-100 text-blue-700">Per item jasa</span>""",
+"""                              <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-white border border-blue-100 text-blue-700">Opsional</span>""",1)
+
+must_replace("src/screens/PosScreen.tsx",
+"""                                <option value="">Pilih staff...</option>""",
+"""                                <option value="">Tanpa petugas</option>""",1)
+
+must_replace("src/screens/PosScreen.tsx",
+"""                              {cartEntry.serviceStaffId ? `Snapshot pembagian: ${cartEntry.serviceCommissionPercent ?? assignedServiceStaff?.serviceCommissionPercent ?? 0}% untuk ${cartEntry.serviceStaffName || assignedServiceStaff?.fullName || 'staff'}.` : 'Staff wajib dipilih sebelum pembayaran.'}""",
+"""                              {cartEntry.serviceStaffId ? `Snapshot pembagian: ${cartEntry.serviceCommissionPercent ?? assignedServiceStaff?.serviceCommissionPercent ?? 0}% untuk ${cartEntry.serviceStaffName || assignedServiceStaff?.fullName || 'staff'}.` : 'Petugas belum ditentukan. Seluruh nilai jasa masuk sebagai pendapatan bisnis.'}""",1)
+
+must_replace("src/context/TgpContext.tsx",
+"""      if (serviceCartEntries.some((ci) => !ci.serviceStaffId)) {
+        setErrorMessage('Setiap jasa di keranjang wajib memilih staff/petugas yang mengerjakannya.');
+        return null;
+      }
+
+      const totalServiceCommission = detailedItems.reduce((sum, item) => sum + (item.serviceCommissionAmount || 0), 0);""",
+"""      // Petugas jasa bersifat opsional. Jika tidak dipilih, tidak ada komisi
+      // yang dipotong dan seluruh nilai jasa menjadi bagian bisnis.
+      const totalServiceCommission = detailedItems.reduce((sum, item) => sum + (item.serviceCommissionAmount || 0), 0);""",1)
+
+# Never force an outlet for a service business. A barbershop/service POS is
+# completed against the already-active business context.
+must_replace("src/context/TgpContext.tsx",
+"""    if (role === UserRole.KASIR && !targetOutletId) {
+      setErrorMessage('Akun Kasir belum memiliki STAN/Outlet penugasan. Silakan minta Admin Owner menugaskan STAN/Outlet terlebih dahulu.');
+      return null;
+    }""",
+"""    if (role === UserRole.KASIR && !targetOutletId && businesses.find((b) => b.businessId === effectiveBusinessId)?.templateType !== BusinessTemplate.SERVICE) {
+      setErrorMessage('Akun Kasir belum memiliki STAN/Outlet penugasan. Silakan minta Admin Owner menugaskan STAN/Outlet terlebih dahulu.');
+      return null;
+    }""",1)
+
+must_replace("src/context/TgpContext.tsx",
+"""    if (role === UserRole.KASIR && !targetOutlet) {
+      setErrorMessage('STAN/Outlet Kasir tidak ditemukan atau sudah dihapus. Hubungi Admin.');
+      return null;
+    }""",
+"""    if (role === UserRole.KASIR && !targetOutlet && businesses.find((b) => b.businessId === effectiveBusinessId)?.templateType !== BusinessTemplate.SERVICE) {
+      setErrorMessage('STAN/Outlet Kasir tidak ditemukan atau sudah dihapus. Hubungi Admin.');
+      return null;
+    }""",1)
+
+
 # UI
 (ROOT/"src/screens/OperationalPeriodsScreen.tsx").write_text("""import React from 'react';
 import { CalendarDays, LockKeyhole, ShieldCheck } from 'lucide-react';
