@@ -94,6 +94,50 @@ if staff.exists():
         t = t.replace('<h2 className="text-xl font-black">Jasa Saya</h2>', '<h2 className="text-xl font-black">Jasa Saya</h2><button type="button" onClick={logout} className="ml-auto px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-extrabold">Keluar</button>', 1)
     staff.write_text(t)
 
+    # SKY BARBERSHOP: make POS staff identity and Staff history use the
+    # same registered STAFF account, independent of case/spacing/diacritics.
+    t = staff.read_text()
+    t = t.replace(
+        "const {currentSession,activeBusiness,operationalPeriods,sales,logout}=useTgp();",
+        "const {currentSession,activeBusiness,operationalPeriods,sales,users,logout}=useTgp();",
+        1,
+    )
+    old_identity = """   const matches=(value:any)=>{
+     const ids=[user.userId,user.username,user.fullName].filter(Boolean).map(String);
+     return ids.includes(String(value??''));
+   };"""
+    new_identity = """   const normalizeIdentity=(value:any)=>String(value??'').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+   const identityKeys=new Set([user.userId,user.username,user.fullName,...users.filter((u:any)=>u.role===UserRole.STAFF&&String(u.businessId||'')===String(activeBusiness.businessId)).flatMap((u:any)=>[u.userId,u.username,u.fullName])].filter(Boolean).map(normalizeIdentity));
+   const matches=(value:any)=>identityKeys.has(normalizeIdentity(value));"""
+    if old_identity in t:
+        t = t.replace(old_identity,new_identity,1)
+    old_period = """     if(selectedPeriod){
+       const key=selectedPeriod.periodKey;
+       const salePeriod=String(sale.periodId||'');
+       const month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+       if(salePeriod && salePeriod!==selectedPeriod.periodId)return[];
+       if(!salePeriod && month!==key)return[];
+     }"""
+    new_period = """     if(selectedPeriod && range!=='ALL'){
+       const start=Number(selectedPeriod.startDate||0);
+       const end=Number(selectedPeriod.endDate||0);
+       if(start && end && (ts<start || ts>end))return[];
+     }"""
+    if old_period in t:
+        t = t.replace(old_period,new_period,1)
+    old_assigned = """       const assigned =
+         matches(item.serviceStaffId)||matches(item.staffId)||matches(item.assignedStaffId)||matches(item.serviceStaffName)||matches(item.assignedStaffName)||
+         matches(item.serviceStaff?.userId)||matches(item.serviceStaff?.username)||matches(item.serviceStaff?.fullName)||
+         matches(item.staff?.userId)||matches(item.staff?.username)||matches(item.staff?.fullName)||
+         matches(sale.serviceStaffId)||matches(sale.staffId)||matches(sale.assignedStaffId)||matches(sale.serviceStaffName)||matches(sale.assignedStaffName);
+       if(!assigned)return[];"""
+    new_assigned = """       const itemAssigned=matches(item.serviceStaffId)||matches(item.staffId)||matches(item.assignedStaffId)||matches(item.serviceStaffName)||matches(item.assignedStaffName)||matches(item.serviceStaff?.userId)||matches(item.serviceStaff?.username)||matches(item.serviceStaff?.fullName)||matches(item.staff?.userId)||matches(item.staff?.username)||matches(item.staff?.fullName);
+       const saleAssigned=matches(sale.serviceStaffId)||matches(sale.staffId)||matches(sale.assignedStaffId)||matches(sale.serviceStaffName)||matches(sale.assignedStaffName);
+       if(!itemAssigned&&!saleAssigned)return[];"""
+    if old_assigned in t:
+        t = t.replace(old_assigned,new_assigned,1)
+    staff.write_text(t)
+
 sync = ROOT / "src/services/supabaseSyncService.ts"
 if not sync.exists():
     raise RuntimeError("supabaseSyncService.ts not found")
