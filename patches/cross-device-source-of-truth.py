@@ -149,6 +149,11 @@ patch(ctx,
 """  const checkoutPos = (""",
 """  const checkoutPos = async (""","async checkout implementation")
 patch(ctx,
+"""    serviceStaffId?: string | null
+  ): SaleOrderEntity | null => {""",
+"""    serviceStaffId?: string | null
+  ): Promise<SaleOrderEntity | null> => {""","async checkout return type")
+patch(ctx,
 """  checkout: (
     paymentMethod: PaymentMethod,
     stanIdOverride?: string | null,
