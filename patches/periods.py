@@ -258,8 +258,8 @@ must_replace("src/screens/PosScreen.tsx",
   const hasStanModule = activeBusiness?.activeModules.includes(BusinessModule.STAN_OUTLET);
   const shouldUseStan = hasStanModule && !isServiceBusiness;""",1)
 
+must_replace("src/screens/PosScreen.tsx",
 """addToCart(quantityModalItem, validQty, hasStanModule ? selectedOutletId : undefined);""",
-"""addToCart(quantityModalItem, validQty, hasStanModule ? selectedOutletId : undefined);"""
 """        addToCart(quantityModalItem, validQty, shouldUseStan ? selectedOutletId : undefined);""",1)
 
 must_replace("src/screens/PosScreen.tsx",
