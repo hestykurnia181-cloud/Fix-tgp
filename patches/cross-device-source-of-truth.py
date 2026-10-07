@@ -223,6 +223,7 @@ ctx.write_text(c)
 
 # ---------------------------------------------------------------------------
 # 3) POS awaits the async checkout result.
+# Verified against the current checkout signature in the source ZIP.
 # ---------------------------------------------------------------------------
 pos = ROOT / "src/screens/PosScreen.tsx"
 p = pos.read_text()
