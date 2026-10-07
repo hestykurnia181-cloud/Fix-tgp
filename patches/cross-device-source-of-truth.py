@@ -146,8 +146,8 @@ patch(ctx,
 """  ) => SaleOrderEntity | null;""",
 """  ) => Promise<SaleOrderEntity | null>;""","async checkout contract")
 patch(ctx,
-"""  ): SaleOrderEntity | null => {""",
-"""  ): Promise<SaleOrderEntity | null> => {""","async checkout implementation")
+"""  const checkoutPos = (""",
+"""  const checkoutPos = async (""","async checkout implementation")
 
 patch(ctx,
 """    setSales((prev) => [newSale, ...prev]);
