@@ -278,4 +278,100 @@ pos_block_new = """  const handleCheckoutSubmit = (e: React.FormEvent) => {
 patch(pos, pos_block_old, pos_block_new, "POS checkout promise-safe handler")
 
 
+
+patch(sync,
+"""  public initialize(handlers: SyncHandlers) {
+    this.handlers = handlers;""",
+"""  public initialize(handlers: SyncHandlers, localRecoverySnapshot?: any) {
+    this.handlers = handlers;""",
+"initialize accepts pre-fetch local snapshot")
+
+patch(sync,
+"""    this.startRealtimeSync();
+    this.startPendingSyncRetry();""",
+"""    this.startRealtimeSync(localRecoverySnapshot);
+    this.startPendingSyncRetry();""",
+"realtime start receives local snapshot")
+
+patch(sync,
+"""  private async startRealtimeSync() {""",
+"""  private async startRealtimeSync(localRecoverySnapshot?: any) {""",
+"realtime sync snapshot parameter")
+
+patch(sync,
+"""      // 1. Initial State Fetch from Supabase
+      await this.fetchAllData();""",
+"""      // Recover the device's pre-existing local data BEFORE the first server fetch.
+      if (localRecoverySnapshot) {
+        await this.reconcileLocalSnapshot(localRecoverySnapshot);
+      }
+
+      // Initial State Fetch from Supabase
+      await this.fetchAllData();""",
+"pre-fetch local recovery ordering")
+
+patch(ctx,
+"""  useEffect(() => {
+    supabaseSyncService.initialize({""",
+"""  useEffect(() => {
+    const localRecoverySnapshot = {
+      businesses: loadStored('businesses', INITIAL_BUSINESSES),
+      users: loadStored('users', INITIAL_USERS),
+      items: loadStored('items', INITIAL_ITEMS),
+      sales: loadStored('sales', INITIAL_SALES),
+      ledgers: loadStored('ledgers', INITIAL_LEDGERS),
+      transfers: loadStored('transfers', INITIAL_TRANSFERS),
+      damaged: loadStored('damaged', INITIAL_DAMAGED),
+      attendances: loadStored('attendances', []),
+      outlets: loadStored('outlets', []),
+      outletStocks: loadStored('outlet_stocks', []),
+      stanTransfers: loadStored('stan_transfers', []),
+      stockMutations: loadStored('mutations', []),
+      auditLogs: loadStored('audit', INITIAL_AUDIT_LOGS),
+      operationalPeriods: loadStored('operational_periods', []),
+    };
+
+    supabaseSyncService.initialize({""",
+"capture local snapshot before initialize")
+
+patch(ctx,
+"""      },
+    });
+
+    // Seed initial data if DB is empty, then recover local records missing on the server.""",
+"""      },
+    }, localRecoverySnapshot);
+
+    // Seed initial data if DB is empty. Local recovery now happens inside
+    // Supabase initialization before the first remote fetch.""",
+"pass snapshot into initialize")
+
+patch(ctx,
+"""    }).then(() => supabaseSyncService.reconcileLocalSnapshot({
+      businesses: loadStored('businesses', INITIAL_BUSINESSES),
+      users: loadStored('users', INITIAL_USERS),
+      items: loadStored('items', INITIAL_ITEMS),
+      sales: loadStored('sales', INITIAL_SALES),
+      ledgers: loadStored('ledgers', INITIAL_LEDGERS),
+      transfers: loadStored('transfers', INITIAL_TRANSFERS),
+      damaged: loadStored('damaged', INITIAL_DAMAGED),
+      attendances: loadStored('attendances', []),
+      outlets: loadStored('outlets', []),
+      outletStocks: loadStored('outlet_stocks', []),
+      stanTransfers: loadStored('stan_transfers', []),
+      stockMutations: loadStored('mutations', []),
+      auditLogs: loadStored('audit', INITIAL_AUDIT_LOGS),
+      operationalPeriods: loadStored('operational_periods', []),
+    })).catch((error) => console.warn('[cross-device] local recovery failed', error));""",
+"""    }).catch((error) => console.warn('[cross-device] initial seed failed', error));""",
+"remove post-fetch recovery")
+
+patch(ctx,
+"""      subtotal: ci.quantity * (ci.unitPrice ?? getItemUnitPrice(ci.item)),
+      ...(ci.item.type === 'SERVICE' && ci.serviceStaffId ? {""",
+"""      subtotal: ci.quantity * (ci.unitPrice ?? getItemUnitPrice(ci.item)),
+      itemType: ci.item.type,
+      ...(ci.item.type === 'SERVICE' && ci.serviceStaffId ? {""",
+"persist item type in sale JSON")
+
 print("[cross-device] patch completed")
