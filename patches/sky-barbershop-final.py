@@ -12,8 +12,10 @@ pos.write_text(s)
 
 ctx=ROOT/'src/context/TgpContext.tsx'
 s=ctx.read_text()
-s,n=re.subn(r"(subtotal: ci\.quantity \* \(ci\.unitPrice \?\? getItemUnitPrice\(ci\.item\)\),\\n)(\\s*)\(\.\.\.ci\.item\.type === 'SERVICE'", r"\1\\2itemType: ci.item.type,\\n\\2...(ci.item.type === 'SERVICE'", s, count=1)
-if n!=1: raise RuntimeError('Completed service item type anchor not found')
+old="      subtotal: ci.quantity * (ci.unitPrice ?? getItemUnitPrice(ci.item)),\n      ...(ci.item.type === 'SERVICE' && ci.serviceStaffId ? {"
+new="      subtotal: ci.quantity * (ci.unitPrice ?? getItemUnitPrice(ci.item)),\n      itemType: ci.item.type,\n      ...(ci.item.type === 'SERVICE' && ci.serviceStaffId ? {"
+if old not in s: raise RuntimeError('Completed service item type anchor not found')
+s=s.replace(old,new,1)
 s,n=re.subn(r"const staff = users\.find\(\(u\) => u\.userId === serviceStaffId\);", "const staff = users.find((u) => u.userId === serviceStaffId && normalizeUserRole(u.role) === UserRole.STAFF && (u.businessId === effectiveBusinessId || (u.assignedBusinessIds || []).includes(effectiveBusinessId)));", s, count=1)
 if n!=1: raise RuntimeError('Checkout staff fallback not found')
 ctx.write_text(s)
