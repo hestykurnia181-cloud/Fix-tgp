@@ -137,6 +137,14 @@ new="""  const currentPeriodKey = (): string => {
     supabaseSyncService.syncOperationalPeriod(p);
     return p;
   };
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    const key = currentPeriodKey();
+    if (!operationalPeriods.some(p => p.businessId === activeBusinessId && p.periodKey === key)) {
+      ensureActivePeriod(activeBusinessId);
+    }
+  }, [activeBusinessId, operationalPeriods.length]);
+
   const currentKey=currentPeriodKey();
   const activeOperationalPeriod=activeBusinessId ? (operationalPeriods.find(p=>p.businessId===activeBusinessId && p.periodKey===currentKey) || null) : null;
   const periodSales=activeOperationalPeriod ? sales.filter(s=>s.businessId===activeOperationalPeriod.businessId && (((s as any).periodId===activeOperationalPeriod.periodId) || (!(s as any).periodId && periodKeyForTimestamp(s.timestamp)===activeOperationalPeriod.periodKey))) : [];
