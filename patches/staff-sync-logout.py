@@ -79,6 +79,9 @@ if staff.exists():
     t = re.sub(r"\s*let all:any\[\]=\[\];try\{all=JSON\.parse\(localStorage\.getItem\('sales'\)\|\|'\[\]'\)\}catch\{\}",
                "", t, count=1)
     t = t.replace("return all.flatMap((sale:any)=>", "return sales.flatMap((sale:any)=>")
+    # Re-render immediately when the synchronized context sales collection changes.
+    t = re.sub(r"(\},\[)(user\?\.userId,user\?\.username,user\?\.fullName,)", r"\1sales,\2", t, count=1)
+    t = re.sub(r"(\},\[)(user\?\.userId,)", r"\1sales,\2", t, count=1)
     if "logout" in t and "Keluar" not in t:
         # Insert a visible logout action in the staff header.
         needle = '<h2 className="text-xl font-black">Jasa Saya</h2>'
