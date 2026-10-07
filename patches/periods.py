@@ -461,3 +461,160 @@ s=s.replace(needle2,"""    if (role === UserRole.ADMIN_OWNER) {
 p.write_text(s)
 
 print("period patch OK")
+
+
+# STAFF ROLE HARDENING: staff sees only photo attendance + own service history.
+# Keep this at the end so it overrides earlier navigation additions.
+p = ROOT / "src/components/TgpBottomBar.tsx"
+if p.exists():
+    s = p.read_text()
+    marker = "    return navItems;"
+    guard = """    if (role === UserRole.STAFF) {
+      return navItems.filter((item) => item.screen === 'SERVICE_STAFF_MODULE');
+    }
+"""
+    if "return navItems.filter((item) => item.screen === 'SERVICE_STAFF_MODULE')" not in s:
+        if marker in s:
+            s = s.replace(marker, guard + marker, 1)
+        elif "return navItems;" in s:
+            s = s.replace("return navItems;", guard + "return navItems;", 1)
+        else:
+            # Some app versions use a different indentation/return wrapper.
+            s = s.replace("return navItems", guard + "return navItems", 1)
+    p.write_text(s)
+
+# Replace the staff service screen with a robust view that reads the same local sales
+# snapshot used by the app and supports the common staff-assignment field variants.
+p = ROOT / "src/screens/ServiceStaffScreen.tsx"
+p.write_text(r"""import React,{useMemo,useRef,useState} from 'react';
+import {Camera,CalendarDays,Scissors,UserRound,CheckCircle2} from 'lucide-react';
+import {useTgp} from '../context/TgpContext';
+import {UserRole} from '../types';
+
+type Attendance={id:string;userId:string;businessId:string;dateKey:string;checkInAt?:number;checkInPhoto?:string;checkOutAt?:number;checkOutPhoto?:string};
+const ATT_KEY='tgp_service_attendance_v1';
+const readAttendance=():Attendance[]=>{try{return JSON.parse(localStorage.getItem(ATT_KEY)||'[]')}catch{return[]}};
+const saveAttendance=(v:Attendance[])=>localStorage.setItem(ATT_KEY,JSON.stringify(v));
+const dateKey=(d:Date)=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)};
+const weekStart=(d:Date)=>{const x=new Date(d);const n=x.getDay()||7;x.setHours(0,0,0,0);x.setDate(x.getDate()-n+1);return x.getTime()};
+const monthStart=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),1).getTime();
+const money=(n:number)=>'Rp '+Math.round(n).toLocaleString('id-ID');
+
+export const ServiceStaffScreen:React.FC=()=>{
+ const {currentSession,activeBusiness,operationalPeriods}=useTgp();
+ const user=currentSession?.user;
+ const role=currentSession?.user?.role;
+ const [attendance,setAttendance]=useState<Attendance[]>(readAttendance);
+ const [target,setTarget]=useState<'IN'|'OUT'|null>(null);
+ const [periodId,setPeriodId]=useState('CURRENT');
+ const [range,setRange]=useState<'DAY'|'WEEK'|'MONTH'|'ALL'>('DAY');
+ const input=useRef<HTMLInputElement>(null);
+ const allowed=role===UserRole.STAFF||role===UserRole.ADMIN_OWNER;
+ const periods=useMemo(()=>operationalPeriods.filter(p=>p.businessId===activeBusiness?.businessId).sort((a,b)=>b.startDate-a.startDate),[operationalPeriods,activeBusiness?.businessId]);
+ const selectedPeriod=periodId==='CURRENT'?(periods.find(p=>p.status==='ACTIVE')||periods[0]):periods.find(p=>p.periodId===periodId);
+ const today=dateKey(new Date());
+ const todayAttendance=attendance.find(a=>a.userId===user?.userId&&a.businessId===activeBusiness?.businessId&&a.dateKey===today);
+
+ const history=useMemo(()=>{
+   if(!user||!activeBusiness)return[];
+   let sales:any[]=[];try{sales=JSON.parse(localStorage.getItem('sales')||'[]')}catch{sales=[]}
+   const now=new Date(), ws=weekStart(now), ms=monthStart(now);
+   const matches=(value:any)=>{
+     const ids=[user.userId,user.username,user.fullName].filter(Boolean).map(String);
+     return ids.includes(String(value??''));
+   };
+   return sales.flatMap((sale:any)=>{
+     if(String(sale.businessId||'')!==String(activeBusiness.businessId))return[];
+     const ts=Number(sale.timestamp||sale.createdAt||sale.date||0), d=new Date(ts);
+     if(!ts)return[];
+     if(selectedPeriod){
+       const key=selectedPeriod.periodKey;
+       const salePeriod=String(sale.periodId||'');
+       const month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+       if(salePeriod && salePeriod!==selectedPeriod.periodId)return[];
+       if(!salePeriod && month!==key)return[];
+     }
+     if(range==='DAY'&&dateKey(d)!==today)return[];
+     if(range==='WEEK'&&ts<ws)return[];
+     if(range==='MONTH'&&ts<ms)return[];
+     const items=Array.isArray(sale.items)?sale.items:[];
+     return items.flatMap((item:any)=>{
+       const assigned =
+         matches(item.serviceStaffId)||matches(item.staffId)||matches(item.assignedStaffId)||
+         matches(item.serviceStaff?.userId)||matches(item.serviceStaff?.username)||
+         matches(item.staff?.userId)||matches(item.staff?.username)||
+         matches(sale.serviceStaffId)||matches(sale.staffId)||matches(sale.assignedStaffId);
+       if(!assigned)return[];
+       const qty=Number(item.quantity||item.qty||1);
+       const amount=Number(item.subtotal??item.total??item.amount??item.totalAmount??((item.price||item.unitPrice||0)*qty));
+       const commission=Number(item.serviceCommissionAmount??item.commissionAmount??item.commission??0);
+       const name=item.name||item.itemName||item.serviceName||item.productName||'Jasa';
+       return [{id:String(sale.saleId||sale.orderId||sale.transactionId||ts)+'-'+String(item.itemId||item.id||name),ts,name,qty,amount,commission}];
+     });
+   }).sort((a:any,b:any)=>b.ts-a.ts);
+ },[user?.userId,user?.username,user?.fullName,activeBusiness?.businessId,selectedPeriod?.periodId,selectedPeriod?.periodKey,range,today]);
+
+ const total=history.reduce((n:number,x:any)=>n+x.amount,0);
+ const commission=history.reduce((n:number,x:any)=>n+x.commission,0);
+ const choose=(mode:'IN'|'OUT')=>{setTarget(mode);setTimeout(()=>input.current?.click(),0)};
+ const takePhoto=(e:React.ChangeEvent<HTMLInputElement>)=>{
+   const file=e.target.files?.[0]; if(!file||!target||!user||!activeBusiness)return;
+   const reader=new FileReader();
+   reader.onload=()=>{
+     const dk=dateKey(new Date());
+     const old=readAttendance().find(a=>a.userId===user.userId&&a.businessId===activeBusiness.businessId&&a.dateKey===dk);
+     const row:Attendance=old||{id:'att-'+user.userId+'-'+dk,userId:user.userId,businessId:activeBusiness.businessId,dateKey:dk};
+     if(target==='IN'){row.checkInAt=Date.now();row.checkInPhoto=String(reader.result||'')}
+     else {row.checkOutAt=Date.now();row.checkOutPhoto=String(reader.result||'')}
+     const next=[...readAttendance().filter(a=>a.id!==row.id),row];saveAttendance(next);setAttendance(next);setTarget(null);e.target.value='';
+   };
+   reader.readAsDataURL(file);
+ };
+ if(!allowed)return <div className="p-6">Akses ditolak.</div>;
+ return <div className="space-y-4 pb-24">
+   <input ref={input} type="file" accept="image/*" capture="user" onChange={takePhoto} className="hidden"/>
+   <div className="bg-white rounded-3xl border p-5">
+     <div className="flex items-center gap-3"><div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center"><Scissors className="w-6 h-6"/></div><div><div className="text-[10px] uppercase font-black text-emerald-700">SKY BARBERSHOP • JASA</div><h2 className="text-xl font-black">Jasa Saya</h2><p className="text-xs text-slate-500">Staff hanya memiliki akses absensi foto dan riwayat pekerjaan sendiri.</p></div></div>
+   </div>
+   <div className="bg-white rounded-3xl border p-4">
+     <div className="flex items-center gap-2 mb-3"><Camera className="w-4 h-4 text-emerald-600"/><b>Absensi Foto</b></div>
+     <div className="grid sm:grid-cols-2 gap-3">
+       <button onClick={()=>choose('IN')} disabled={!!todayAttendance?.checkInAt} className="rounded-2xl p-4 border text-left disabled:opacity-50 bg-emerald-50 border-emerald-200"><b>Absen Masuk</b><div className="text-xs mt-1">{todayAttendance?.checkInAt?new Date(todayAttendance.checkInAt).toLocaleTimeString('id-ID'):'Ambil foto untuk absen masuk'}</div></button>
+       <button onClick={()=>choose('OUT')} disabled={!todayAttendance?.checkInAt||!!todayAttendance?.checkOutAt} className="rounded-2xl p-4 border text-left disabled:opacity-50 bg-blue-50 border-blue-200"><b>Absen Pulang</b><div className="text-xs mt-1">{todayAttendance?.checkOutAt?new Date(todayAttendance.checkOutAt).toLocaleTimeString('id-ID'):'Ambil foto untuk absen pulang'}</div></button>
+     </div>
+     {todayAttendance?.checkInPhoto&&<div className="mt-3 flex gap-2"><img src={todayAttendance.checkInPhoto} className="w-16 h-16 rounded-xl object-cover border" alt="Foto masuk"/>{todayAttendance.checkOutPhoto&&<img src={todayAttendance.checkOutPhoto} className="w-16 h-16 rounded-xl object-cover border" alt="Foto pulang"/>}</div>}
+   </div>
+   <div className="bg-white rounded-3xl border p-4">
+     <div className="flex items-center gap-2 mb-3"><CalendarDays className="w-4 h-4 text-blue-600"/><b>Daftar Jasa / Riwayat Pekerjaan Saya</b></div>
+     <div className="grid sm:grid-cols-2 gap-2 mb-3">
+       <select value={periodId} onChange={e=>setPeriodId(e.target.value)} className="rounded-xl border px-3 py-2 text-sm"><option value="CURRENT">Periode aktif</option>{periods.map(p=><option key={p.periodId} value={p.periodId}>{p.name} • {p.status}</option>)}</select>
+       <div className="grid grid-cols-4 gap-1 bg-slate-100 rounded-xl p-1">{([['DAY','Harian'],['WEEK','Mingguan'],['MONTH','Bulanan'],['ALL','Semua']] as const).map(([k,l])=><button key={k} onClick={()=>setRange(k)} className={'rounded-lg py-2 text-[10px] font-black '+(range===k?'bg-white shadow':'text-slate-500')}>{l}</button>)}</div>
+     </div>
+     <div className="grid grid-cols-3 gap-2 mb-3"><div className="rounded-2xl bg-slate-50 p-3"><div className="text-[10px] text-slate-500">Jasa dikerjakan</div><b>{history.reduce((n:number,x:any)=>n+x.qty,0)}</b></div><div className="rounded-2xl bg-slate-50 p-3"><div className="text-[10px] text-slate-500">Nilai jasa</div><b>{money(total)}</b></div><div className="rounded-2xl bg-slate-50 p-3"><div className="text-[10px] text-slate-500">Komisi</div><b>{money(commission)}</b></div></div>
+     <div className="divide-y border rounded-2xl overflow-hidden">{history.length?history.map((x:any)=><div key={x.id} className="p-3 flex justify-between gap-3"><div><b className="text-sm">{x.name}</b><div className="text-[10px] text-slate-500">{new Date(x.ts).toLocaleString('id-ID')} • Qty {x.qty}</div></div><b className="shrink-0">{money(x.amount)}</b></div>):<div className="p-6 text-center text-sm text-slate-400"><UserRound className="w-6 h-6 mx-auto mb-2"/>Belum ada jasa yang tercatat untuk akun ini pada filter tersebut.</div>}</div>
+   </div>
+ </div>;
+};
+""")
+
+# Staff must never see POS, stock, finance, reports, cashier, or management routes in the UI.
+# Keep the staff module as the only bottom navigation destination.
+p = ROOT / "src/components/TgpBottomBar.tsx"
+s = p.read_text()
+p.write_text(s)
+
+# Prevent direct navigation to known operational screens when the current user is STAFF.
+# The app can use different screen names across versions, so this is intentionally
+# based on the role and a conservative screen-name list.
+p = ROOT / "src/context/TgpContext.tsx"
+s = p.read_text()
+guard = """    if (role === UserRole.STAFF && ['POS_MODULE','STOCK_MODULE','INVENTORY_MODULE','FINANCE_MODULE','REPORTS_MODULE','EMPLOYEES_MODULE','EMPLOYEE_MANAGEMENT_MODULE'].includes(screen as string)) {
+      setErrorMessage('Akses staff hanya untuk absensi foto dan riwayat jasa.');
+      return;
+    }
+"""
+anchor = "    if (screen === 'OPERATIONAL_PERIODS_MODULE' && role !== UserRole.OWNER && role !== UserRole.ADMIN_OWNER) {"
+if "Akses staff hanya untuk absensi foto dan riwayat jasa." not in s:
+    if anchor in s:
+        s = s.replace(anchor, guard + anchor, 1)
+p.write_text(s)
