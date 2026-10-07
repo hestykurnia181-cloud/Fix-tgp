@@ -65,18 +65,30 @@ if staff.exists():
     t = re.sub(r"(\},\[)(user\?\.userId,user\?\.username,user\?\.fullName,)", r"\1sales,\2", t, count=1)
     t = re.sub(r"(\},\[)(user\?\.userId,)", r"\1sales,\2", t, count=1)
 
-    old_block = """         matches(item.serviceStaffId)||matches(item.staffId)||matches(item.assignedStaffId)||
-         matches(item.serviceStaff?.userId)||matches(item.serviceStaff?.username)||
-         matches(item.staff?.userId)||matches(item.staff?.username)||
-         matches(sale.serviceStaffId)||matches(sale.staffId)||matches(sale.assignedStaffId);"""
-    new_block = """         matches(item.serviceStaffId)||matches(item.staffId)||matches(item.assignedStaffId)||
-         matches(item.serviceStaffName)||matches(item.assignedStaffName)||
-         matches(item.serviceStaff?.userId)||matches(item.serviceStaff?.username)||matches(item.serviceStaff?.fullName)||
-         matches(item.staff?.userId)||matches(item.staff?.username)||matches(item.staff?.fullName)||
-         matches(sale.serviceStaffId)||matches(sale.staffId)||matches(sale.assignedStaffId)||
-         matches(sale.serviceStaffName)||matches(sale.assignedStaffName);"""
-    if old_block in t:
-        t = t.replace(old_block, new_block, 1)
+    if "matches(item.serviceStaffName)" not in t:
+        t = t.replace(
+            "matches(item.serviceStaffId)||matches(item.staffId)||matches(item.assignedStaffId)||",
+            "matches(item.serviceStaffId)||matches(item.staffId)||matches(item.assignedStaffId)||matches(item.serviceStaffName)||matches(item.assignedStaffName)||",
+            1,
+        )
+    if "matches(item.serviceStaff?.fullName)" not in t:
+        t = t.replace(
+            "matches(item.serviceStaff?.userId)||matches(item.serviceStaff?.username)||",
+            "matches(item.serviceStaff?.userId)||matches(item.serviceStaff?.username)||matches(item.serviceStaff?.fullName)||",
+            1,
+        )
+    if "matches(item.staff?.fullName)" not in t:
+        t = t.replace(
+            "matches(item.staff?.userId)||matches(item.staff?.username)||",
+            "matches(item.staff?.userId)||matches(item.staff?.username)||matches(item.staff?.fullName)||",
+            1,
+        )
+    if "matches(sale.serviceStaffName)" not in t:
+        t = t.replace(
+            "matches(sale.serviceStaffId)||matches(sale.staffId)||matches(sale.assignedStaffId);",
+            "matches(sale.serviceStaffId)||matches(sale.staffId)||matches(sale.assignedStaffId)||matches(sale.serviceStaffName)||matches(sale.assignedStaffName);",
+            1,
+        )
 
     if "onClick={logout}" not in t and 'Jasa Saya' in t:
         t = t.replace('<h2 className="text-xl font-black">Jasa Saya</h2>', '<h2 className="text-xl font-black">Jasa Saya</h2><button type="button" onClick={logout} className="ml-auto px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-extrabold">Keluar</button>', 1)
