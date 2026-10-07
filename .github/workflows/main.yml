@@ -139,7 +139,7 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: project/dist
 
@@ -157,9 +157,17 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
+    concurrency:
+      group: github-pages-production
+      cancel-in-progress: false
+
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v5
+        with:
+          timeout: 1800000
+          reporting_interval: 10000
 
   android:
     name: Android APK
