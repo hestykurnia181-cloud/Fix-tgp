@@ -7,7 +7,7 @@ def rep(path,old,new,label):
 pos=ROOT/'src/screens/PosScreen.tsx'
 rep(pos,'''  const serviceProviders = allStaffForActiveBusiness.filter((user) =>
     [UserRole.STAFF, UserRole.MANAGER, UserRole.KASIR].includes(user.role)
-  );''','''  const serviceProviders = allStaffForActiveBusiness.filter((user) => normalizeUserRole(user.role) === UserRole.STAFF).sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'id'));''','Sky POS staff list anchor not found')
+  );''','''  const serviceProviders = allStaffForActiveBusiness.filter((user) => user.role === UserRole.STAFF).sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'id'));''','Sky POS staff list anchor not found')
 ctx=ROOT/'src/context/TgpContext.tsx'
 rep(ctx,'''      subtotal: ci.quantity * (ci.unitPrice ?? getItemUnitPrice(ci.item)),
       ...(ci.item.type === 'SERVICE' && ci.serviceStaffId ? {''','''      subtotal: ci.quantity * (ci.unitPrice ?? getItemUnitPrice(ci.item)),
