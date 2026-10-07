@@ -54,6 +54,7 @@ jobs:
           python3 patches/periods.py
           python3 patches/sync.py
           python3 patches/staff-sync-logout.py
+          python3 patches/reliable-sync.py
 
       - uses: actions/upload-artifact@v4
         with:
