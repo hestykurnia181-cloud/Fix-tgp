@@ -26,8 +26,8 @@ replace("src/types.ts",
 
 export enum UserRole {""")
 replace("src/types.ts", "  | 'OWNER_DASHBOARD'\n", "  | 'OWNER_DASHBOARD'\n  | 'OPERATIONAL_PERIODS_MODULE'\n")
-replace("src/types.ts", "  timestamp: number;\n}\n\nexport interface SaleOrderItem", "  timestamp: number;\n  periodId?: string;\n}\n\nexport interface SaleOrderItem")
-replace("src/types.ts", "  timestamp: number;\n}\n\nexport interface CartItem", "  timestamp: number;\n  periodId?: string;\n}\n\nexport interface CartItem")
+replace("src/types.ts", "  timestamp: number;\n  createdAt?: number;\n}", "  timestamp: number;\n  createdAt?: number;\n  periodId?: string;\n}", 1)
+replace("src/types.ts", "  date?: number;\n  createdBy: string;\n}", "  date?: number;\n  createdBy: string;\n  periodId?: string;\n}", 1)
 
 # Supabase schema
 period_table = """-- 4. Table: operational_periods
