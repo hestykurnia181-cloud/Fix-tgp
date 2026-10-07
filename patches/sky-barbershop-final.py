@@ -147,4 +147,20 @@ if old_cfg not in ss:
     raise RuntimeError("Supabase config priority anchor not found")
 sup.write_text(ss.replace(old_cfg, new_cfg, 1))
 
+
+# Force the production project used by the connected TGP deployment.
+vite = ROOT / 'vite.config.ts'
+vs = vite.read_text()
+old_env = "  const supabaseUrl = process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL || '';\n  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '';"
+new_env = "  const supabaseUrl = 'https://shcvlcrdjcaslqrapudx.supabase.co';\n  const supabaseAnonKey = 'sb_publishable_RVdvxVm7xA65wn7donoPQg_-SVaJbtl';"
+if old_env not in (vs := vite.read_text()):
+    raise RuntimeError('vite Supabase env anchor not found')
+vite.write_text(vs.replace(old_env, new_env, 1))
+
+# Force a fresh PWA service-worker cache.
+sw = ROOT / 'public/sw.js'
+if sw.exists():
+    sw.write_text(sw.read_text().replace('tgp-management-v1', 'tgp-management-v2'))
+
+print('Production Supabase target + PWA cache refresh patch applied')
 print("Sky Barbershop assignment + production Supabase config priority patch applied")
