@@ -176,12 +176,40 @@ patch(ctx,
     setLedgers((prev) => [newLedger, ...prev]);""","confirmed ledger write before local commit")
 
 patch(pos,
-"""  const handleCheckoutSubmit = (e: React.FormEvent) => {""",
-"""  const handleCheckoutSubmit = async (e: React.FormEvent) => {""","async POS checkout handler")
+"""  const handleCheckoutSubmit = async (e: React.FormEvent) => {""",
+"""  const handleCheckoutSubmit = (e: React.FormEvent) => {""","sync POS checkout handler")
+
 patch(pos,
-"""    const sale = checkout(
-""",
 """    const sale = await checkout(
-""","await POS checkout")
+""",
+"""    void checkout(
+""","fire-and-forget promise explicitly void")
+
+# Convert the Promise result into the same success UI without making the
+# React form onSubmit callback itself async.
+patch(pos,
+"""    if (sale) {
+      setIsCheckoutOpen(false);
+      setCustomerName('');
+      setNominalReceived('');
+      setDiscountType('NONE');
+      setDiscountValueInput('');
+      setDiscountNote('');
+      setIsDiscountOpen(false);
+      setCompletedSale(sale);
+    }""",
+"""    ).then((sale) => {
+      if (sale) {
+        setIsCheckoutOpen(false);
+        setCustomerName('');
+        setNominalReceived('');
+        setDiscountType('NONE');
+        setDiscountValueInput('');
+        setDiscountNote('');
+        setIsDiscountOpen(false);
+        setCompletedSale(sale);
+      }
+    });""","handle async checkout result")
+
 
 print("[cross-device] patch completed")
