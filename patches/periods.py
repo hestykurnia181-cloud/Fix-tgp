@@ -121,6 +121,10 @@ new="""  const currentPeriodKey = (): string => {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
   };
+  const periodKeyForTimestamp = (timestamp:number): string => {
+    const d = new Date(timestamp);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  };
   const ensureActivePeriod = (businessId: string): OperationalPeriodEntity => {
     const key=currentPeriodKey();
     const found=operationalPeriods.find(p=>p.businessId===businessId && p.periodKey===key);
@@ -133,9 +137,10 @@ new="""  const currentPeriodKey = (): string => {
     supabaseSyncService.syncOperationalPeriod(p);
     return p;
   };
-  const activeOperationalPeriod=activeBusinessId ? ensureActivePeriod(activeBusinessId) : null;
-  const periodSales=activeOperationalPeriod ? sales.filter(s=>s.businessId===activeOperationalPeriod.businessId && (s as any).periodId===activeOperationalPeriod.periodId) : [];
-  const periodLedgers=activeOperationalPeriod ? ledgers.filter(l=>l.businessId===activeOperationalPeriod.businessId && (l as any).periodId===activeOperationalPeriod.periodId) : [];
+  const currentKey=currentPeriodKey();
+  const activeOperationalPeriod=activeBusinessId ? (operationalPeriods.find(p=>p.businessId===activeBusinessId && p.periodKey===currentKey) || null) : null;
+  const periodSales=activeOperationalPeriod ? sales.filter(s=>s.businessId===activeOperationalPeriod.businessId && (((s as any).periodId===activeOperationalPeriod.periodId) || (!(s as any).periodId && periodKeyForTimestamp(s.timestamp)===activeOperationalPeriod.periodKey))) : [];
+  const periodLedgers=activeOperationalPeriod ? ledgers.filter(l=>l.businessId===activeOperationalPeriod.businessId && (((l as any).periodId===activeOperationalPeriod.periodId) || (!(l as any).periodId && periodKeyForTimestamp(l.timestamp)===activeOperationalPeriod.periodKey))) : [];
   const activeSales=activeBusinessId ? periodSales : [];
 """
 if old not in s: raise SystemExit("activeSales pattern missing")
