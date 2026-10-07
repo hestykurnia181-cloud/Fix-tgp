@@ -50,7 +50,7 @@ jobs:
           }
 
           python3 patches/admin-master.py
-          python3 patches/operational-period.py
+          python3 patches/periods.py
 
       - uses: actions/upload-artifact@v4
         with:
