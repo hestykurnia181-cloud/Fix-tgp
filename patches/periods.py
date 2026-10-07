@@ -259,7 +259,7 @@ must_replace("src/screens/PosScreen.tsx",
   const shouldUseStan = hasStanModule && !isServiceBusiness;""",1)
 
 must_replace("src/screens/PosScreen.tsx",
-"""        addToCart(quantityModalItem, validQty, hasStanModule ? selectedOutletId : undefined);""",
+"""addToCart(quantityModalItem, validQty, hasStanModule ? selectedOutletId : undefined);"""
 """        addToCart(quantityModalItem, validQty, shouldUseStan ? selectedOutletId : undefined);""",1)
 
 must_replace("src/screens/PosScreen.tsx",
