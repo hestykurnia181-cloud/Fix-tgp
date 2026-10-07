@@ -2,7 +2,7 @@ name: TGP Management - Android, iOS Simulator & PWA
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, fix/cross-platform-sync]
   workflow_dispatch:
 
 permissions:
@@ -51,6 +51,7 @@ jobs:
 
           python3 patches/admin-master.py
           python3 patches/periods.py
+          python3 patches/sync.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -142,6 +143,7 @@ jobs:
           path: project/dist
 
   deploy-pages:
+    if: github.ref == 'refs/heads/main'
     name: Deploy PWA
     needs: web-pwa
     runs-on: ubuntu-latest
@@ -388,7 +390,7 @@ jobs:
   verify:
     name: Final Verification
     needs:
-      - deploy-pages
+      - web-pwa
       - android
       - ios
     runs-on: ubuntu-latest
