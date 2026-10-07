@@ -189,6 +189,64 @@ p.write_text(s)
 must_replace("src/App.tsx","import { PosScreen } from './screens/PosScreen';","import { PosScreen } from './screens/PosScreen';\nimport { OperationalPeriodsScreen } from './screens/OperationalPeriodsScreen';")
 must_replace("src/App.tsx","      case 'POS_MODULE':","      case 'OPERATIONAL_PERIODS_MODULE':\n        return <OperationalPeriodsScreen />;\n      case 'POS_MODULE':")
 
+
+# Finance must use the active operational period, not the whole business ledger.
+must_replace("src/context/TgpContext.tsx",
+"""  const activeBusinessFinance = {
+    totalIncome: activeLedger
+      .filter((l) => l.type === LedgerType.PEMASUKAN)
+      .reduce((sum, l) => sum + l.amount, 0),
+    totalExpense: activeLedger
+      .filter((l) => l.type === LedgerType.PENGELUARAN)
+      .reduce((sum, l) => sum + l.amount, 0),
+""",
+"""  const activeBusinessFinance = {
+    totalIncome: periodLedgers
+      .filter((l) => l.type === LedgerType.PEMASUKAN)
+      .reduce((sum, l) => sum + l.amount, 0),
+    totalExpense: periodLedgers
+      .filter((l) => l.type === LedgerType.PENGELUARAN)
+      .reduce((sum, l) => sum + l.amount, 0),
+""",1)
+
+# Manual finance entries must belong to the current period and must be blocked after close.
+must_replace("src/context/TgpContext.tsx",
+"""    const nowTs = Date.now();
+    const entry: LedgerTransactionEntity = {
+      transactionId: 'ledger-manual-' + nowTs,""",
+"""    const nowTs = Date.now();
+    const manualPeriod = activeOperationalPeriod || ensureActivePeriod(activeBusinessId);
+    if (manualPeriod.status === 'CLOSED') {
+      setErrorMessage('Periode ' + manualPeriod.name + ' sudah ditutup. Transaksi kas baru tidak dapat dibuat.');
+      return false;
+    }
+    const entry: LedgerTransactionEntity = {
+      transactionId: 'ledger-manual-' + nowTs,""",1)
+
+must_replace("src/context/TgpContext.tsx",
+"""      createdBy: currentSession?.user.username || 'staff',
+    };
+
+    setLedgers((prev) => [entry, ...prev]);""",
+"""      createdBy: currentSession?.user.username || 'staff',
+      periodId: manualPeriod.periodId,
+    };
+
+    setLedgers((prev) => [entry, ...prev]);""",1)
+
+# Finance screen: all rows and counters must be scoped to the active operational period.
+must_replace("src/screens/FinanceScreen.tsx",
+"""    activeBusiness,
+    activeLedgers,
+    activeBusinessFinance,""",
+"""    activeBusiness,
+    periodLedgers,
+    activeBusinessFinance,""",1)
+
+must_replace("src/screens/FinanceScreen.tsx","""  const filteredLedgers = activeLedgers.filter((l) => {""","""  const filteredLedgers = periodLedgers.filter((l) => {""",1)
+must_replace("src/screens/FinanceScreen.tsx","""              Semua ({activeLedgers.length})""","""              Semua ({periodLedgers.length})""",1)
+
+
 # UI
 (ROOT/"src/screens/OperationalPeriodsScreen.tsx").write_text("""import React from 'react';
 import { CalendarDays, LockKeyhole, ShieldCheck } from 'lucide-react';
