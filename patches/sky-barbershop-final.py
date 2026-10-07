@@ -23,7 +23,7 @@ ctx.write_text(s)
 types=ROOT/'src/types.ts'
 s=types.read_text()
 if "itemType?: ItemEntity['type'];" not in s:
-  s=s.replace('  subtotal: number;\\n  serviceStaffId?: string;', "  subtotal: number;\\n  itemType?: ItemEntity['type'];\\n  serviceStaffId?: string;",1)
+  s=s.replace("  subtotal: number;", "  subtotal: number;\n  itemType?: ItemEntity['type'];", 1)
   types.write_text(s)
 
 staff=ROOT/'src/screens/ServiceStaffScreen.tsx'
