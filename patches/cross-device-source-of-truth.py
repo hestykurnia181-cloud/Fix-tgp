@@ -185,7 +185,7 @@ replace_once(ctx,
 
 replace_once(ctx,
 """  ) => SaleOrderEntity | null => {""",
-"""  ) => Promise<SaleOrderEntity | null> => {""",
+"""  ): Promise<SaleOrderEntity | null> => {""",
 "checkout implementation signature anchor not found")
 
 # Put the Supabase confirmation BEFORE publishing the sale/ledger to local
