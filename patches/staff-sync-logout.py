@@ -26,8 +26,6 @@ if "const logout = () => {" not in s:
         .forEach((key) => localStorage.removeItem(key));
     } catch {}
     setCurrentSession(null);
-    setActiveBusinessId(null);
-    setScreen('LOGIN');
   };
 
 """
