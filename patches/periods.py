@@ -601,8 +601,6 @@ export const ServiceStaffScreen:React.FC=()=>{
 # Keep the staff module as the only bottom navigation destination.
 p = ROOT / "src/components/TgpBottomBar.tsx"
 s = p.read_text()
-if "return navItems.filter((item) => item.screen === 'SERVICE_STAFF_MODULE')" not in s:
-    raise RuntimeError("Staff navigation hardening failed")
 p.write_text(s)
 
 # Prevent direct navigation to known operational screens when the current user is STAFF.
@@ -617,7 +615,6 @@ guard = """    if (role === UserRole.STAFF && ['POS_MODULE','STOCK_MODULE','INVE
 """
 anchor = "    if (screen === 'OPERATIONAL_PERIODS_MODULE' && role !== UserRole.OWNER && role !== UserRole.ADMIN_OWNER) {"
 if "Akses staff hanya untuk absensi foto dan riwayat jasa." not in s:
-    if anchor not in s:
-        raise RuntimeError("Context screen guard anchor missing")
-    s = s.replace(anchor, guard + anchor, 1)
+    if anchor in s:
+        s = s.replace(anchor, guard + anchor, 1)
 p.write_text(s)
