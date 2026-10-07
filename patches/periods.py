@@ -330,6 +330,86 @@ must_replace("src/context/TgpContext.tsx",
     }""",1)
 
 
+
+# SERVICE STAFF MODULE
+p=ROOT/"src/types.ts"
+t=p.read_text()
+if "'SERVICE_STAFF_MODULE'" not in t:
+    t=t.replace("  | 'OPERATIONAL_PERIODS_MODULE'\n","  | 'OPERATIONAL_PERIODS_MODULE'\n  | 'SERVICE_STAFF_MODULE'\n",1)
+    p.write_text(t)
+
+(ROOT/"src/screens/ServiceStaffScreen.tsx").write_text(r"""import React,{useMemo,useRef,useState} from 'react';
+import {Camera,CheckCircle2,Clock3,Scissors,UserRound,CalendarDays} from 'lucide-react';
+import {useTgp} from '../context/TgpContext';
+import {UserRole} from '../types';
+
+type Attendance={id:string;userId:string;businessId:string;dateKey:string;checkInAt?:number;checkInPhoto?:string;checkOutAt?:number;checkOutPhoto?:string};
+const KEY='tgp_service_attendance_v1';
+const readRows=():Attendance[]=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}};
+const saveRows=(x:Attendance[])=>localStorage.setItem(KEY,JSON.stringify(x));
+const keyOf=(d:Date)=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)};
+const weekStart=(d:Date)=>{const x=new Date(d);const n=x.getDay()||7;x.setHours(0,0,0,0);x.setDate(x.getDate()-n+1);return x.getTime()};
+const money=(n:number)=>'Rp '+Math.round(n).toLocaleString('id-ID');
+
+export const ServiceStaffScreen:React.FC=()=>{
+ const {currentSession,activeBusiness,operationalPeriods}=useTgp();
+ const user=currentSession?.user, role=currentSession?.user.role;
+ const [rows,setRows]=useState<Attendance[]>(readRows); const [target,setTarget]=useState<'IN'|'OUT'|null>(null);
+ const [periodId,setPeriodId]=useState('CURRENT'); const [range,setRange]=useState<'DAY'|'WEEK'|'MONTH'|'ALL'>('DAY');
+ const ref=useRef<HTMLInputElement>(null);
+ const allowed=role===UserRole.STAFF||role===UserRole.ADMIN_OWNER;
+ const today=keyOf(new Date());
+ const todayRow=rows.find(x=>x.userId===user?.userId&&x.businessId===activeBusiness?.businessId&&x.dateKey===today);
+ const periods=useMemo(()=>operationalPeriods.filter(p=>p.businessId===activeBusiness?.businessId).sort((a,b)=>b.startDate-a.startDate),[operationalPeriods,activeBusiness?.businessId]);
+ const period=periodId==='CURRENT'?(periods.find(p=>p.status==='ACTIVE')||periods[0]):periods.find(p=>p.periodId===periodId);
+ const history=useMemo(()=>{
+   if(!user||!activeBusiness)return[];
+   let all:any[]=[];try{all=JSON.parse(localStorage.getItem('sales')||'[]')}catch{}
+   const now=new Date(),ws=weekStart(now),ms=new Date(now.getFullYear(),now.getMonth(),1).getTime();
+   return all.flatMap((sale:any)=>{
+     if(sale.businessId!==activeBusiness.businessId)return[];
+     const ts=Number(sale.timestamp||sale.createdAt||0), sd=new Date(ts);
+     if(period&&(sale.periodId? sale.periodId!==period.periodId : (sd.getFullYear()+'-'+String(sd.getMonth()+1).padStart(2,'0'))!==period.periodKey))return[];
+     if(range==='DAY'&&keyOf(sd)!==today)return[];
+     if(range==='WEEK'&&ts<ws)return[];
+     if(range==='MONTH'&&ts<ms)return[];
+     return (Array.isArray(sale.items)?sale.items:[]).filter((i:any)=>i.serviceStaffId===user.userId||i.serviceStaffId===user.username||i.serviceStaffName===user.fullName).map((i:any)=>({id:(sale.saleId||sale.orderId||sale.transactionId)+'-'+(i.itemId||i.name),ts,name:i.name||i.itemName||i.serviceName||'Jasa',amount:Number(i.subtotal??i.total??i.amount??((i.price||0)*(i.quantity||1))),qty:Number(i.quantity||1),commission:Number(i.serviceCommissionAmount||0)}));
+   }).sort((a:any,b:any)=>b.ts-a.ts);
+ },[user?.userId,user?.username,user?.fullName,activeBusiness?.businessId,period?.periodId,period?.periodKey,range,today]);
+ const total=history.reduce((a:number,x:any)=>a+x.amount,0),commission=history.reduce((a:number,x:any)=>a+x.commission,0);
+ const choose=(x:'IN'|'OUT')=>{setTarget(x);ref.current?.click()};
+ const photo=(e:React.ChangeEvent<HTMLInputElement>)=>{
+   const f=e.target.files?.[0];if(!f||!target||!user||!activeBusiness)return;
+   const r=new FileReader();r.onload=()=>{const rows=readRows(),dk=keyOf(new Date()),old=rows.find(x=>x.userId===user.userId&&x.businessId===activeBusiness.businessId&&x.dateKey===dk),a:Attendance=old||{id:'att-'+user.userId+'-'+dk,userId:user.userId,businessId:activeBusiness.businessId,dateKey:dk};if(target==='IN'){a.checkInAt=Date.now();a.checkInPhoto=String(r.result||'')}else{a.checkOutAt=Date.now();a.checkOutPhoto=String(r.result||'')};const n=[...rows.filter(x=>x.id!==a.id),a];saveRows(n);setRows(n);setTarget(null);e.target.value=''};r.readAsDataURL(f)
+ };
+ if(!allowed)return <div className="p-6">Akses ditolak.</div>;
+ return <div className="space-y-4 pb-24">
+  <input ref={ref} type="file" accept="image/*" capture="user" onChange={photo} className="hidden"/>
+  <div className="bg-white rounded-3xl border p-5"><div className="flex items-center gap-3"><div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center"><Scissors className="w-6 h-6"/></div><div><div className="text-[10px] uppercase font-black text-emerald-700">Jasa • {activeBusiness?.name||'Sky barbershop'}</div><h2 className="text-xl font-black">Jasa & Absensi</h2><p className="text-xs text-slate-500">Hanya absensi dan riwayat jasa akun ini.</p></div></div></div>
+  <div className="bg-white rounded-3xl border p-4"><div className="flex items-center gap-2 mb-3"><Camera className="w-4 h-4 text-emerald-600"/><b>Absensi Hari Ini</b></div><div className="grid sm:grid-cols-2 gap-3"><button onClick={()=>choose('IN')} disabled={!!todayRow?.checkInAt} className="rounded-2xl p-4 border text-left disabled:opacity-50 bg-emerald-50 border-emerald-200"><b>Absen Masuk</b><div className="text-xs mt-1">{todayRow?.checkInAt?new Date(todayRow.checkInAt).toLocaleTimeString('id-ID'):'Ambil foto untuk masuk'}</div></button><button onClick={()=>choose('OUT')} disabled={!todayRow?.checkInAt||!!todayRow?.checkOutAt} className="rounded-2xl p-4 border text-left disabled:opacity-50 bg-blue-50 border-blue-200"><b>Absen Pulang</b><div className="text-xs mt-1">{todayRow?.checkOutAt?new Date(todayRow.checkOutAt).toLocaleTimeString('id-ID'):'Ambil foto untuk pulang'}</div></button></div>{todayRow?.checkInPhoto&&<div className="mt-3 flex gap-2"><img src={todayRow.checkInPhoto} className="w-16 h-16 rounded-xl object-cover border"/>{todayRow.checkOutPhoto&&<img src={todayRow.checkOutPhoto} className="w-16 h-16 rounded-xl object-cover border"/>}</div>}</div>
+  <div className="bg-white rounded-3xl border p-4"><div className="flex items-center gap-2 mb-3"><CalendarDays className="w-4 h-4 text-blue-600"/><b>Riwayat Jasa Saya</b></div><div className="grid sm:grid-cols-2 gap-2 mb-3"><select value={periodId} onChange={e=>setPeriodId(e.target.value)} className="rounded-xl border px-3 py-2 text-sm"><option value="CURRENT">Periode aktif</option>{periods.map(p=><option key={p.periodId} value={p.periodId}>{p.name} • {p.status}</option>)}</select><div className="grid grid-cols-4 gap-1 bg-slate-100 rounded-xl p-1">{([['DAY','Harian'],['WEEK','Mingguan'],['MONTH','Bulanan'],['ALL','Semua']] as const).map(([k,l])=><button key={k} onClick={()=>setRange(k)} className={'rounded-lg py-2 text-[10px] font-black '+(range===k?'bg-white shadow':'text-slate-500')}>{l}</button>)}</div></div><div className="grid grid-cols-2 gap-2 mb-3"><div className="rounded-2xl bg-slate-50 p-3"><div className="text-[10px] text-slate-500">Total Jasa</div><b>{money(total)}</b></div><div className="rounded-2xl bg-slate-50 p-3"><div className="text-[10px] text-slate-500">Komisi</div><b>{money(commission)}</b></div></div><div className="divide-y border rounded-2xl overflow-hidden">{history.length?history.map((x:any)=><div key={x.id} className="p-3 flex justify-between"><div><b className="text-sm">{x.name}</b><div className="text-[10px] text-slate-500">{new Date(x.ts).toLocaleString('id-ID')} • Qty {x.qty}</div></div><b>{money(x.amount)}</b></div>):<div className="p-6 text-center text-sm text-slate-400"><UserRound className="w-6 h-6 mx-auto mb-2"/>Belum ada riwayat jasa pada filter ini.</div>}</div></div>
+ </div>
+};
+""")
+
+p=ROOT/"src/screens/ServiceStaffScreen.tsx"
+p.parent.mkdir(parents=True,exist_ok=True)
+if not p.exists():
+    pass
+
+p=ROOT/"src/App.tsx";t=p.read_text()
+if "ServiceStaffScreen" not in t:
+    t=t.replace("import { PosScreen } from './screens/PosScreen';","import { PosScreen } from './screens/PosScreen';\nimport { ServiceStaffScreen } from './screens/ServiceStaffScreen';",1)
+    t=t.replace("      case 'POS_MODULE':","      case 'SERVICE_STAFF_MODULE':\n        return <ServiceStaffScreen />;\n      case 'POS_MODULE':",1)
+p.write_text(t)
+
+p=ROOT/"src/components/TgpBottomBar.tsx";t=p.read_text()
+if "SERVICE_STAFF_MODULE" not in t:
+    a="    if (role === UserRole.ADMIN_OWNER) {"
+    if a in t:t=t.replace(a,a+"\n      navItems.push({ screen: 'SERVICE_STAFF_MODULE', label: 'Jasa', icon: <span className=\"text-lg leading-none\">✂️</span> });",1)
+    t=t.replace("    return navItems;","    if (role === UserRole.STAFF) navItems.push({ screen: 'SERVICE_STAFF_MODULE', label: 'Jasa', icon: <span className=\"text-lg leading-none\">✂️</span> });\n\n    return navItems;",1)
+p.write_text(t)
+
 # UI
 (ROOT/"src/screens/OperationalPeriodsScreen.tsx").write_text("""import React from 'react';
 import { CalendarDays, LockKeyhole, ShieldCheck } from 'lucide-react';
