@@ -180,7 +180,7 @@ patch(pos,
 """  const handleCheckoutSubmit = (e: React.FormEvent) => {""","sync POS checkout handler")
 
 patch(pos,
-"""    const sale = await checkout(
+"""    const sale = checkout(
 """,
 """    void checkout(
 ""","fire-and-forget promise explicitly void")
