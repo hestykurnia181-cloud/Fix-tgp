@@ -620,9 +620,10 @@ if "Akses staff hanya untuk absensi foto dan riwayat jasa." not in s:
 p.write_text(s)
 
 
-# FINAL STAFF-ONLY GATE:
-# Force STAFF through a dedicated root screen. Use a uniquely named hook result so
-# this patch never references an undeclared currentSession variable.
+# FINAL STAFF-ONLY GATE (FIXED):
+# The provider must wrap AppContent. Calling useTgp() from App before TgpProvider
+# causes a runtime crash/white screen. Put the STAFF gate inside AppContent, where
+# useTgp() is already valid and hook order remains stable.
 from pathlib import Path
 import re
 
@@ -638,39 +639,57 @@ if app is None:
 
 s = app.read_text()
 
-if "STAFF_ONLY_GATE_V2" not in s:
-    # Ensure the required imports exist without creating duplicate imports.
+if "STAFF_ONLY_GATE_V3" not in s:
     if "ServiceStaffScreen" not in s:
-        s = "import { ServiceStaffScreen } from './screens/ServiceStaffScreen';\n" + s
-    if "useTgp" not in s:
-        s = "import { useTgp } from './context/TgpContext';\n" + s
-    if "UserRole" not in s:
+        s = s.replace("import { PosScreen } from './screens/PosScreen';",
+                      "import { PosScreen } from './screens/PosScreen';\nimport { ServiceStaffScreen } from './screens/ServiceStaffScreen';", 1)
+    if "import { UserRole } from './types';" not in s:
         s = "import { UserRole } from './types';\n" + s
 
-    patterns = [
-        r"(function\s+App\s*\([^)]*\)\s*\{)",
-        r"(const\s+App\s*=\s*\([^)]*\)\s*=>\s*\{)",
-        r"(export\s+default\s+function\s+App\s*\([^)]*\)\s*\{)",
-    ]
-    inserted = False
-    # Always use a uniquely named hook binding. This avoids depending on whether
-    # App already has a variable called currentSession.
-    hook = """
-  const { currentSession: __staffSession } = useTgp();
-  // STAFF_ONLY_GATE_V2
-  if (__staffSession?.user?.role === UserRole.STAFF) {
+    # Remove the broken V2 gate from App() if it was previously injected.
+    s = re.sub(
+        r"\n?\s*const \{ currentSession: __staffSession \} = useTgp\(\);\s*"
+        r"// STAFF_ONLY_GATE_V2\s*"
+        r"if \(__staffSession\?\.user\?\.role === UserRole\.STAFF\) \{\s*"
+        r"return <ServiceStaffScreen />;\s*\}\s*",
+        "\n",
+        s,
+        count=1,
+    )
+
+    # Find AppContent's existing hook block. Insert after its useState so all
+    # AppContent hooks remain in a stable order.
+    appcontent = re.search(
+        r"(const\s+AppContent\s*:\s*React\.FC\s*=\s*\(\)\s*=>\s*\{)",
+        s,
+    )
+    if not appcontent:
+        appcontent = re.search(r"(const\s+AppContent\s*=\s*\(\)\s*=>\s*\{)", s)
+    if not appcontent:
+        raise RuntimeError("AppContent component not found")
+
+    # If the gate isn't already in AppContent, insert it immediately after the
+    # isSwitchBizOpen useState declaration.
+    if "STAFF_ONLY_GATE_V3" not in s:
+        state_pat = r"(const\s+\[isSwitchBizOpen,\s*setIsSwitchBizOpen\]\s*=\s*useState\(false\);)"
+        m = re.search(state_pat, s[appcontent.end():])
+        if not m:
+            raise RuntimeError("AppContent useState anchor not found")
+        pos = appcontent.end() + m.end()
+        gate = """
+  // STAFF_ONLY_GATE_V3
+  if (currentSession?.user?.role === UserRole.STAFF) {
     return <ServiceStaffScreen />;
   }
 """
-    for pat in patterns:
-        m = re.search(pat, s)
-        if m:
-            s = s[:m.end()] + hook + s[m.end():]
-            inserted = True
-            break
-    if not inserted:
-        raise RuntimeError("Could not locate App component for STAFF-only gate")
+        s = s[:pos] + gate + s[pos:]
+
+    # Ensure the normal App component still wraps AppContent in the provider.
+    # This is the critical runtime requirement.
+    if "return (" not in s[s.find("export default function App"):]:
+        raise RuntimeError("App return block not found")
+
     app.write_text(s)
-    print("STAFF-only root gate V2 patched:", app)
+    print("STAFF-only root gate V3 patched inside AppContent:", app)
 else:
-    print("STAFF-only root gate V2 already present:", app)
+    print("STAFF-only root gate V3 already present:", app)
