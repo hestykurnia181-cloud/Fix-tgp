@@ -61,6 +61,7 @@ jobs:
           python3 patches/owner-transactions-employee-rename.py
           python3 patches/master-delete-management.py
           python3 patches/master-transaction-scope.py
+          python3 patches/master-transaction-format.py
 
       - uses: actions/upload-artifact@v4
         with:
