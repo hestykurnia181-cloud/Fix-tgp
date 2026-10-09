@@ -69,17 +69,18 @@ new_method = """  public async deleteSale(sale: SaleOrderEntity): Promise<boolea
     try {
       // Read every ledger row associated with this receipt, not only PENJUALAN_POS,
       // so service-related income/commission journal rows cannot be left behind.
+      const linkedReferences = [sale.receiptNumber, sale.saleId].filter(Boolean);
       const { data: ledgerRows, error: readLedgerError } = await supabase
         .from('ledgers')
         .select('*')
         .eq('business_id', sale.businessId)
-        .eq('reference_id', sale.receiptNumber);
+        .in('reference_id', linkedReferences);
       if (readLedgerError) throw readLedgerError;
       linkedLedgers = ledgerRows || [];
 
       const { error: ledgerError } = await supabase.from('ledgers').delete()
         .eq('business_id', sale.businessId)
-        .eq('reference_id', sale.receiptNumber);
+        .in('reference_id', linkedReferences);
       if (ledgerError) throw ledgerError;
       ledgersRemoved = true;
 
