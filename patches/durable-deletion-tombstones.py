@@ -94,7 +94,7 @@ if "isRecordTombstoned(table, recordId)" not in s:
         raise RuntimeError("rawUpsertRecord method not found")
     insert_at = m.end()
     guard = """
-    const tombstoneId = this.getRecordIdForTable(table, data);
+    const tombstoneId = this.getRecordIdForTable(table, dbPayload);
     if (tombstoneId && await this.isRecordTombstoned(table, tombstoneId)) {
       this.clearPendingSyncForRecord(table, tombstoneId);
       console.warn('[SupabaseSync] skipped stale write for permanently deleted row', table, tombstoneId);
