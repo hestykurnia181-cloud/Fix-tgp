@@ -24,6 +24,33 @@ if new not in s:
 else:
     print("MASTER transaction visibility already fixed")
 
+# Keep local ledger state consistent with the full receipt-wide Supabase deletion.
+p = root / "src/context/TgpContext.tsx"
+s = p.read_text()
+old_local = """    setLedgers((prev) => prev.filter((ledger) =>
+      !(ledger.businessId === target.businessId && ledger.referenceId === target.receiptNumber && ledger.category === 'PENJUALAN_POS')
+    ));
+"""
+new_local = """    setLedgers((prev) => prev.filter((ledger) =>
+      !(ledger.businessId === target.businessId && ledger.referenceId === target.receiptNumber)
+    ));
+"""
+if new_local not in s:
+    if old_local not in s:
+        raise RuntimeError("local ledger deletion anchor missing")
+    s = s.replace(old_local, new_local, 1)
+    p.write_text(s)
+    print("Local ledger cleanup expanded to all receipt-linked entries")
+else:
+    print("Local ledger cleanup already expanded")
+
+# Keep audit terminology aligned with the role that now owns this action.
+p = root / "src/context/TgpContext.tsx"
+s = p.read_text()
+s = s.replace("addAuditLog('OWNER_DELETE_SALE', 'OWNER ' + actor.username", "addAuditLog('MASTER_DELETE_SALE', 'MASTER ' + actor.username, 1)
+p.write_text(s)
+print("Master transaction audit label normalized")
+
 # Delete all financial ledger rows tied to this receipt and then delete the sale row.
 # The commission and owner-share amounts are columns on the sale itself, so deleting the
 # sale row removes those financial values too. If the sale delete fails, restore ledgers.
