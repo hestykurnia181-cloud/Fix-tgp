@@ -15,7 +15,7 @@ anchor = "  const resetMasterAccount = () => {\n"
 fn = """  const resetUserPassword = async (userId: string, newPassword: string, confirmPassword: string): Promise<boolean> => {
     const actor = currentSession?.user;
     const actorRole = actor ? normalizeUserRole(actor.role) : null;
-    if (!actor || (actorRole !== UserRole.MASTER && actorRole !== UserRole.ADMIN_OWNER)) {
+    if (!actor || ![UserRole.MASTER, UserRole.ADMIN_OWNER, UserRole.ADMIN_DIVISI].includes(actorRole as UserRole)) {
       setErrorMessage('Anda tidak memiliki akses untuk mengubah password akun pengguna lain.');
       return false;
     }
@@ -24,13 +24,11 @@ fn = """  const resetUserPassword = async (userId: string, newPassword: string, 
       setErrorMessage('Akun yang akan diubah tidak ditemukan.');
       return false;
     }
-    if (actorRole === UserRole.ADMIN_OWNER) {
+    if (actorRole === UserRole.ADMIN_OWNER || actorRole === UserRole.ADMIN_DIVISI) {
       const targetRole = normalizeUserRole(target.role);
-      const targetIsEmployee =
-        targetRole === UserRole.STAFF ||
-        targetRole === UserRole.KASIR ||
-        targetRole === UserRole.WAREHOUSE ||
-        targetRole === UserRole.ADMIN_DIVISI;
+      const targetIsEmployee = actorRole === UserRole.ADMIN_OWNER
+        ? [UserRole.STAFF, UserRole.KASIR, UserRole.WAREHOUSE, UserRole.ADMIN_DIVISI, UserRole.MANAGER].includes(targetRole)
+        : [UserRole.STAFF, UserRole.KASIR, UserRole.WAREHOUSE, UserRole.MANAGER].includes(targetRole);
       const actorBusinessIds = new Set<string>([
         ...(actor.assignedBusinessIds || []),
         ...(actor.businessId ? [actor.businessId] : []),
@@ -41,7 +39,7 @@ fn = """  const resetUserPassword = async (userId: string, newPassword: string, 
       ]);
       const sameBusiness = [...actorBusinessIds].some((id) => targetBusinessIds.has(id));
       if (!targetIsEmployee || !sameBusiness) {
-        setErrorMessage('Admin Owner hanya dapat mengubah password karyawan yang berada di bisnisnya.');
+        setErrorMessage('Admin hanya dapat mengubah password karyawan sesuai hak akses dan bisnisnya.');
         return false;
       }
     }
@@ -69,7 +67,7 @@ fn = """  const resetUserPassword = async (userId: string, newPassword: string, 
     if (currentSession?.user.userId === userId) {
       setCurrentSession((prev) => (prev ? { ...prev, user: updatedUser } : prev));
     }
-    const auditAction = actorRole === UserRole.ADMIN_OWNER ? 'ADMIN_OWNER_EMPLOYEE_PASSWORD_CHANGED' : 'MASTER_USER_PASSWORD_CHANGED';
+    const auditAction = actorRole === UserRole.ADMIN_OWNER ? 'ADMIN_OWNER_EMPLOYEE_PASSWORD_CHANGED' : actorRole === UserRole.ADMIN_DIVISI ? 'ADMIN_DIVISI_EMPLOYEE_PASSWORD_CHANGED' : 'MASTER_USER_PASSWORD_CHANGED';
     addAuditLog(auditAction, `${actor.role} (${actor.username}) changed password for ${target.username}.`);
     setUserMessage(`Password akun ${target.username} berhasil diubah.`);
     return true;
@@ -202,7 +200,9 @@ if employee_screen.exists():
                     <div className="min-w-0"><p className="font-bold text-xs text-slate-900">{u.fullName}</p><p className="text-[10px] text-slate-500 break-all">{u.username} • {u.department || 'OPERASIONAL_UMUM'}</p></div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-white border border-slate-200">{u.role}</span>
-                      {canManage && (
+                      {canManage && (role === UserRole.ADMIN_OWNER
+                        ? [UserRole.STAFF, UserRole.KASIR, UserRole.WAREHOUSE, UserRole.ADMIN_DIVISI, UserRole.MANAGER].includes(u.role as UserRole)
+                        : [UserRole.STAFF, UserRole.KASIR, UserRole.WAREHOUSE, UserRole.MANAGER].includes(u.role as UserRole)) && (
                         <button
                           type="button"
                           onClick={async (e) => {
