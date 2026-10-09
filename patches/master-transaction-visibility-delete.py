@@ -47,7 +47,7 @@ else:
 # Keep audit terminology aligned with the role that now owns this action.
 p = root / "src/context/TgpContext.tsx"
 s = p.read_text()
-s = s.replace("addAuditLog('OWNER_DELETE_SALE', 'OWNER ' + actor.username", "addAuditLog('MASTER_DELETE_SALE', 'MASTER ' + actor.username, 1)
+s = s.replace("addAuditLog('OWNER_DELETE_SALE', 'OWNER ' + actor.username", "addAuditLog('MASTER_DELETE_SALE', 'MASTER ' + actor.username", 1)
 p.write_text(s)
 print("Master transaction audit label normalized")
 
