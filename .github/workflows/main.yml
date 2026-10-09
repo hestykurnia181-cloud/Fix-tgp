@@ -1,4 +1,5 @@
 name: TGP Management - Android, iOS Simulator & PWA
+# Rebuild after owner transaction and employee rename changes
 # Staff service-history sync fix
 
 on:
