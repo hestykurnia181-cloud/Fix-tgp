@@ -69,6 +69,7 @@ jobs:
           python3 patches/owner-dashboard-cleanup.py
           python3 patches/prevent-deleted-record-resurrection.py
           python3 patches/durable-deletion-tombstones.py
+          python3 patches/attendance-sync.py
           python3 patches/attendance-discovery.py
 
       - uses: actions/upload-artifact@v4
