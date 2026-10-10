@@ -4,6 +4,8 @@ import re
 ROOT = Path("project")
 sync = ROOT / "src/services/supabaseSyncService.ts"
 s = sync.read_text()
+if "public lastSaleDeletionError" not in s:
+    s = s.replace("class SupabaseSyncService {", "class SupabaseSyncService {\n  public lastSaleDeletionError = '';", 1)
 
 # Persistent server tombstones prevent an offline device's old queue from resurrecting deleted rows.
 helpers = r"""
