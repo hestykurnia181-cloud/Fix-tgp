@@ -34,4 +34,27 @@ replace(
 )
 s=s.replace("  },[sales,user?.userId", "  },[sales,user?.userId") if False else s
 p.write_text(s)
-print("[attendance] staff check-in/out now writes shared attendance records")
+
+# Make Owner/Admin Owner attendance reports include employees who have not checked in yet.
+report=Path("project/src/screens/EmployeeManagementScreen.tsx")
+rs=report.read_text()
+old="    return Array.from(byUser.entries()).map(([userId, row]) => ({ userId, ...row, days: row.dates.size, incomplete: Math.max(0, row.masuk - row.pulang) }));"
+new="""    for (const employee of employees) {
+      if (!byUser.has(employee.userId)) {
+        byUser.set(employee.userId, { name: employee.fullName || employee.username || 'Karyawan', dates: new Set<string>(), masuk: 0, pulang: 0, incomplete: 0 });
+      }
+    }
+    return Array.from(byUser.entries()).map(([userId, row]) => ({ userId, ...row, days: row.dates.size, incomplete: Math.max(0, row.masuk - row.pulang) }));"""
+if new not in rs:
+ if old not in rs: raise RuntimeError("[attendance] report summary anchor missing")
+ rs=rs.replace(old,new,1)
+if "}, [businessAttendance, employees]);" not in rs:
+ if "}, [businessAttendance]);" not in rs: raise RuntimeError("[attendance] report memo dependency anchor missing")
+ rs=rs.replace("}, [businessAttendance]);","}, [businessAttendance, employees]);",1)
+old_label="{row.incomplete ? `${row.incomplete} belum pulang` : 'Lengkap'}"
+new_label="{row.masuk === 0 ? 'Belum absen' : row.incomplete ? `${row.incomplete} belum pulang` : 'Lengkap'}"
+if new_label not in rs:
+ if old_label not in rs: raise RuntimeError("[attendance] report status label anchor missing")
+ rs=rs.replace(old_label,new_label,1)
+report.write_text(rs)
+print("[attendance] staff check-in/out sync and absent-staff report rows applied")
