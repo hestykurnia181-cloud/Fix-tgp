@@ -145,65 +145,31 @@ if start < 0 or end < 0:
     raise RuntimeError("deleteSale method boundaries missing")
 sale_method = r"""  public async deleteSale(sale: SaleOrderEntity): Promise<boolean> {
     const supabase = getSupabaseClient();
-    if (!supabase || !sale?.saleId) return false;
-    const markedIds: string[] = [];
-    let linkedLedgers: any[] = [];
-    let ledgersRemoved = false;
+    if (!supabase || !sale?.saleId) {
+      this.lastSaleDeletionError = 'Supabase tidak tersedia atau ID transaksi kosong.';
+      return false;
+    }
     try {
-      const linkedReferences = [sale.receiptNumber, sale.saleId]
-        .filter((value) => value !== undefined && value !== null && String(value).trim() !== '')
-        .map((value) => String(value));
-      if (sale.businessId && linkedReferences.length) {
-        const { data: ledgerRows, error: readLedgerError } = await supabase
-          .from('ledgers').select('*')
-          .eq('business_id', sale.businessId)
-          .in('reference_id', linkedReferences);
-        if (readLedgerError) throw readLedgerError;
-        linkedLedgers = ledgerRows || [];
-      }
-
-      await this.markRecordDeleted('sales', sale.saleId);
-      markedIds.push(sale.saleId);
-      for (const row of linkedLedgers) {
-        if (row?.transaction_id) {
-          await this.markRecordDeleted('ledgers', String(row.transaction_id));
-          markedIds.push(String(row.transaction_id));
-        }
-      }
-
-      if (sale.businessId && linkedReferences.length) {
-        const { error: ledgerError } = await supabase.from('ledgers').delete()
-          .eq('business_id', sale.businessId)
-          .in('reference_id', linkedReferences);
-        if (ledgerError) throw ledgerError;
-        ledgersRemoved = true;
-      }
-
-      const { data: deletedSales, error: saleError } = await supabase
-        .from('sales').delete().eq('sale_id', sale.saleId).select('sale_id');
-      if (saleError) throw saleError;
-      if (!deletedSales || deletedSales.length === 0) {
-        throw new Error('Transaksi tidak ditemukan di Supabase atau penghapusan ditolak oleh kebijakan akses.');
-      }
-
+      const { data, error } = await supabase.rpc('delete_pos_sale', {
+        p_sale_id: String(sale.saleId),
+        p_business_id: sale.businessId ? String(sale.businessId) : null,
+        p_receipt_number: sale.receiptNumber ? String(sale.receiptNumber) : null,
+      });
+      if (error) throw error;
+      if (!data || data.success !== true) throw new Error('Supabase tidak mengonfirmasi penghapusan transaksi.');
+      this.clearPendingSyncForRecord('sales', String(sale.saleId));
+      const deletedLedgerIds = Array.isArray(data.ledger_ids) ? data.ledger_ids : [];
+      for (const ledgerId of deletedLedgerIds) this.clearPendingSyncForRecord('ledgers', String(ledgerId));
+      this.lastSaleDeletionError = '';
       if (this.channel) {
         this.channel.send({ type: 'broadcast', event: 'tgp_mutation', payload: { type: 'DELETE', table: 'sales', id: sale.saleId } });
         this.channel.send({ type: 'broadcast', event: 'tgp_mutation', payload: { type: 'DELETE', table: 'ledgers', id: sale.receiptNumber } });
       }
       return true;
-    } catch (error) {
-      console.warn('[SupabaseSync] deleteSale failed:', error);
-      if (ledgersRemoved && linkedLedgers.length) {
-        try {
-          const { error: restoreError } = await supabase.from('ledgers').upsert(linkedLedgers);
-          if (restoreError) console.error('[SupabaseSync] ledger rollback failed:', restoreError);
-        } catch (restoreError) {
-          console.error('[SupabaseSync] ledger rollback exception:', restoreError);
-        }
-      }
-      for (const id of markedIds) await this.unmarkRecordDeleted(
-        id === sale.saleId ? 'sales' : 'ledgers', id
-      );
+    } catch (error: any) {
+      const details = [error?.message, error?.details, error?.hint, error?.code].filter((value) => value != null && String(value).trim() !== '').map((value) => String(value)).join(' | ');
+      this.lastSaleDeletionError = details || 'Kesalahan Supabase tidak diketahui.';
+      console.error('[SupabaseSync] deleteSale failed:', error);
       return false;
     }
   }
@@ -211,4 +177,38 @@ sale_method = r"""  public async deleteSale(sale: SaleOrderEntity): Promise<bool
 """
 s = s[:start] + sale_method + s[end:]
 sync.write_text(s)
-print("Updated sale deletion to tombstone transaction and receipt-linked ledgers")
+print("Updated sale deletion to use atomic database RPC")
+
+# Block stale local snapshots from bypassing the low-level upsert tombstone guard.
+s = sync.read_text()
+old = "const missing=rows.map(mapper).filter((r:any)=>r && r[key]!=null && !existing.has(String(r[key])));"
+new = """const missing:any[] = [];
+        for (const row of rows) {
+          const payload:any = mapper(row);
+          const recordId = payload?.[key];
+          if (recordId == null || existing.has(String(recordId))) continue;
+          try {
+            if (await this.isRecordTombstoned(table, String(recordId))) {
+              this.clearPendingSyncForRecord(table, String(recordId));
+              continue;
+            }
+          } catch (tombstoneError) {
+            console.warn('[cross-device] tombstone check failed; skipped recovery insert', table, String(recordId), tombstoneError);
+            continue;
+          }
+          missing.push(payload);
+        }"""
+if old not in s:
+    raise RuntimeError("reconcileLocalSnapshot missing-row anchor not found")
+s = s.replace(old, new, 1)
+sync.write_text(s)
+
+# Expose the actual Supabase error instead of hiding the cause behind a generic message.
+context = ROOT / "src/context/TgpContext.tsx"
+c = context.read_text()
+old_message = "setErrorMessage('Transaksi gagal dihapus dari Supabase. Data lokal tidak diubah.');"
+new_message = "setErrorMessage('Transaksi gagal dihapus dari Supabase: ' + (supabaseSyncService.lastSaleDeletionError || 'periksa koneksi dan izin database.'));"
+if old_message not in c:
+    raise RuntimeError("transaction deletion error message anchor not found")
+context.write_text(c.replace(old_message, new_message, 1))
+print("Guarded cross-device snapshot recovery and exposed deletion diagnostics")
