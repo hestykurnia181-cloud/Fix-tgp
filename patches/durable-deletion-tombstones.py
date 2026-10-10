@@ -145,18 +145,22 @@ if start < 0 or end < 0:
     raise RuntimeError("deleteSale method boundaries missing")
 sale_method = r"""  public async deleteSale(sale: SaleOrderEntity): Promise<boolean> {
     const supabase = getSupabaseClient();
-    if (!supabase || !sale?.saleId || !sale?.businessId || !sale?.receiptNumber) return false;
+    if (!supabase || !sale?.saleId) return false;
     const markedIds: string[] = [];
     let linkedLedgers: any[] = [];
     let ledgersRemoved = false;
     try {
-      const linkedReferences = [sale.receiptNumber, sale.saleId].filter(Boolean);
-      const { data: ledgerRows, error: readLedgerError } = await supabase
-        .from('ledgers').select('*')
-        .eq('business_id', sale.businessId)
-        .in('reference_id', linkedReferences);
-      if (readLedgerError) throw readLedgerError;
-      linkedLedgers = ledgerRows || [];
+      const linkedReferences = [sale.receiptNumber, sale.saleId]
+        .filter((value) => value !== undefined && value !== null && String(value).trim() !== '')
+        .map((value) => String(value));
+      if (sale.businessId && linkedReferences.length) {
+        const { data: ledgerRows, error: readLedgerError } = await supabase
+          .from('ledgers').select('*')
+          .eq('business_id', sale.businessId)
+          .in('reference_id', linkedReferences);
+        if (readLedgerError) throw readLedgerError;
+        linkedLedgers = ledgerRows || [];
+      }
 
       await this.markRecordDeleted('sales', sale.saleId);
       markedIds.push(sale.saleId);
@@ -167,11 +171,13 @@ sale_method = r"""  public async deleteSale(sale: SaleOrderEntity): Promise<bool
         }
       }
 
-      const { error: ledgerError } = await supabase.from('ledgers').delete()
-        .eq('business_id', sale.businessId)
-        .in('reference_id', linkedReferences);
-      if (ledgerError) throw ledgerError;
-      ledgersRemoved = true;
+      if (sale.businessId && linkedReferences.length) {
+        const { error: ledgerError } = await supabase.from('ledgers').delete()
+          .eq('business_id', sale.businessId)
+          .in('reference_id', linkedReferences);
+        if (ledgerError) throw ledgerError;
+        ledgersRemoved = true;
+      }
 
       const { data: deletedSales, error: saleError } = await supabase
         .from('sales').delete().eq('sale_id', sale.saleId).select('sale_id');
