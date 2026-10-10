@@ -25,7 +25,7 @@ replace(
  "derive button state from server attendance"
 )
 replace(
- "const next=[...readAttendance().filter(a=>a.id!==row.id),row];saveAttendance(next);setAttendance(next);setTarget(null);e.target.value='';",
+ "const next=[...readAttendance().filter(a=>a.id!==row.id),row];try{saveAttendance(next)}catch(storageError){console.warn('[attendance] photo cache unavailable; syncing attendance timestamp anyway',storageError)}setAttendance(next);setTarget(null);e.target.value='';",
  """const next=[...readAttendance().filter(a=>a.id!==row.id),row];saveAttendance(next);setAttendance(next);
       // Persist attendance to the shared Supabase-backed attendance stream so Owner/Admin Owner reports see it on every device.
       recordAttendance(target==='IN'?'MASUK':'PULANG',target==='IN'?'Absensi masuk (foto diambil)':'Absensi pulang (foto diambil)');
