@@ -57,7 +57,7 @@ if new_label not in rs:
  if old_label not in rs: raise RuntimeError("[attendance] report status label anchor missing")
  rs=rs.replace(old_label,new_label,1)
 old_employee_filter="return u.businessId === selectedBusinessId || (u.assignedBusinessIds || []).includes(selectedBusinessId);"
-new_employee_filter="return u.businessId === selectedBusinessId || u.staffBinding?.businessId === selectedBusinessId || (u.assignedBusinessIds || []).includes(selectedBusinessId);"
+new_employee_filter="return u.businessId === selectedBusinessId || (u as any).staffBinding?.businessId === selectedBusinessId || (u.assignedBusinessIds || []).includes(selectedBusinessId);"
 if new_employee_filter not in rs:
  if old_employee_filter not in rs: raise RuntimeError("[attendance] staff-binding report filter anchor missing")
  rs=rs.replace(old_employee_filter,new_employee_filter,1)
