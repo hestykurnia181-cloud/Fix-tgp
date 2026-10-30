@@ -390,6 +390,7 @@ replace("src/screens/DamagedGoodsScreen.tsx", """                    <td classNa
                     <td className="py-3 px-3">{dmg.photoDataUrl ? <a href={dmg.photoDataUrl} target="_blank" rel="noreferrer"><img src={dmg.photoDataUrl} alt="Bukti barang rusak" className="w-14 h-14 object-cover rounded-lg border" /></a> : <span className="text-slate-400">-</span>}</td>""")
 
 # Cashier menu: attendance always; damage and stock return only for assigned STAN users.
+replace("src/components/TgpBottomBar.tsx", "const { currentSession, activeBusiness, activeScreen, navigateTo, pendingTransfersForOwner, pendingDamagedForOwner, pendingStanReturnsForApproval } = useTgp();", "const { currentSession, activeBusiness, activeOutlets, activeScreen, navigateTo, pendingTransfersForOwner, pendingDamagedForOwner, pendingStanReturnsForApproval } = useTgp();")
 replace("src/components/TgpBottomBar.tsx", """      {
         screen: 'DAMAGED_GOODS_MODULE',
         label: 'Barang Rusak',
@@ -405,7 +406,7 @@ replace("src/components/TgpBottomBar.tsx", """      {
         label: 'Absensi',
         icon: <Calendar className="w-5 h-5" />,
       },
-      ...(currentSession.user.outletId ? [{
+      ...(activeOutlets.length > 0 ? [{
         screen: 'DAMAGED_GOODS_MODULE' as AppScreen,
         label: 'Barang Rusak',
         icon: <ShieldAlert className="w-5 h-5" />,
@@ -426,7 +427,7 @@ replace("src/context/TgpContext.tsx", """      const allowedScreens: AppScreen[]
         return;
       }
 """, """      const allowedScreens: AppScreen[] = ['POS_MODULE', 'REPORTS_MODULE', 'ATTENDANCE_MODULE'];
-      if (currentSession.user.outletId) allowedScreens.push('DAMAGED_GOODS_MODULE', 'CASHIER_RETURN_STOCK_MODULE');
+      if (activeOutlets.length > 0) allowedScreens.push('DAMAGED_GOODS_MODULE', 'CASHIER_RETURN_STOCK_MODULE');
       if (!allowedScreens.includes(screen)) {
         setErrorMessage('Akses Kasir dibatasi ke POS, laporan penjualan, absensi, dan fitur STAN jika memiliki penugasan STAN.');
         return;
