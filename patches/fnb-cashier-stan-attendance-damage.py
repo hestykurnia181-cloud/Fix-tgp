@@ -515,22 +515,30 @@ replace("src/context/TgpContext.tsx",
 replace("src/context/TgpContext.tsx",
     "  const recordAttendance = (type: 'MASUK' | 'PULANG', note: string, photoDataUrl?: string) => {\n    if (!activeBusinessId || !currentSession) return;",
     "  const recordAttendance = (type: 'MASUK' | 'PULANG', note: string, photoDataUrl: string) => {\n    if (!activeBusinessId || !currentSession) return;\n    if (!photoDataUrl || !photoDataUrl.startsWith('data:image/')) { setErrorMessage('Foto wajib dilampirkan untuk absensi.'); return; }")
-\n# Make migration available inside the extracted app source for release packaging.
+
+# Make migration available inside the extracted app source for release packaging.
 migration = root / "supabase/migrations/20261030120000_fnb_cashier_stan_attendance_damage.sql"
 migration.parent.mkdir(parents=True, exist_ok=True)
-migration.write_text("""-- TGP F&B cashier without STAN, personal sales identity, and STAN-bound damaged-goods evidence.
--- Safe additive migration; apply in Supabase SQL Editor before deploying the updated app.
-ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS cashier_user_id TEXT;
-ALTER TABLE public.damaged_goods ADD COLUMN IF NOT EXISTS outlet_id TEXT;
-ALTER TABLE public.damaged_goods ADD COLUMN IF NOT EXISTS photo_data_url TEXT;
-ALTER TABLE public.damaged_goods ADD COLUMN IF NOT EXISTS approved_by TEXT;
-ALTER TABLE public.damaged_goods ADD COLUMN IF NOT EXISTS processed_at BIGINT;
-ALTER TABLE public.stock_mutations ADD COLUMN IF NOT EXISTS outlet_id TEXT;
-ALTER TABLE public.stock_mutations ADD COLUMN IF NOT EXISTS reference_id TEXT;
-ALTER TABLE public.stock_mutations ADD COLUMN IF NOT EXISTS performed_by TEXT;
+migration.write_text("""-- TGP cashier identity, STAN-bound damage evidence, and stock movement scope.
+-- Add only columns confirmed missing in the connected production schema.
+ALTER TABLE public.sales
+  ADD COLUMN IF NOT EXISTS cashier_user_id TEXT;
 
-CREATE INDEX IF NOT EXISTS idx_sales_cashier_user_id ON public.sales (business_id, cashier_user_id, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_damaged_goods_outlet_id ON public.damaged_goods (business_id, outlet_id, timestamp DESC);
+ALTER TABLE public.damaged_goods
+  ADD COLUMN IF NOT EXISTS outlet_id TEXT,
+  ADD COLUMN IF NOT EXISTS photo_data_url TEXT;
+
+ALTER TABLE public.stock_mutations
+  ADD COLUMN IF NOT EXISTS outlet_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_sales_cashier_user_id
+  ON public.sales (business_id, cashier_user_id, timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_damaged_goods_outlet_id
+  ON public.damaged_goods (business_id, outlet_id, timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_stock_mutations_outlet_id
+  ON public.stock_mutations (business_id, outlet_id, timestamp DESC);
 """, encoding="utf-8")
 
 # Update the reference schema for new installations.
