@@ -1,6 +1,7 @@
 name: TGP Management - Android, iOS Simulator & PWA
 # Rebuild after owner transaction and employee rename changes
 # Staff service-history sync fix
+# Cashier STAN expense module build validation
 
 on:
   push:
