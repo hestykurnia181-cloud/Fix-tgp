@@ -406,7 +406,7 @@ replace("src/components/TgpBottomBar.tsx", """      {
         label: 'Absensi',
         icon: <Calendar className="w-5 h-5" />,
       },
-      ...(activeOutlets.length > 0 ? [{
+      ...(activeOutlets.some((outlet) => outlet.outletId === currentSession?.user.outletId && outlet.status === 'ACTIVE') ? [{
         screen: 'DAMAGED_GOODS_MODULE' as AppScreen,
         label: 'Barang Rusak',
         icon: <ShieldAlert className="w-5 h-5" />,
@@ -427,7 +427,7 @@ replace("src/context/TgpContext.tsx", """      const allowedScreens: AppScreen[]
         return;
       }
 """, """      const allowedScreens: AppScreen[] = ['POS_MODULE', 'REPORTS_MODULE', 'ATTENDANCE_MODULE'];
-      if (activeOutlets.length > 0) allowedScreens.push('DAMAGED_GOODS_MODULE', 'CASHIER_RETURN_STOCK_MODULE');
+      if (activeOutlets.some((outlet) => outlet.outletId === currentSession.user.outletId && outlet.status === 'ACTIVE')) allowedScreens.push('DAMAGED_GOODS_MODULE', 'CASHIER_RETURN_STOCK_MODULE');
       if (!allowedScreens.includes(screen)) {
         setErrorMessage('Akses Kasir dibatasi ke POS, laporan penjualan, absensi, dan fitur STAN jika memiliki penugasan STAN.');
         return;
