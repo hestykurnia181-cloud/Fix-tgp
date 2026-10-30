@@ -4,7 +4,7 @@ name: TGP Management - Android, iOS Simulator & PWA
 
 on:
   push:
-    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa]
+    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports]
   workflow_dispatch:
 
 permissions:
@@ -71,6 +71,7 @@ jobs:
           python3 patches/durable-deletion-tombstones.py
           python3 patches/attendance-sync.py
           python3 patches/attendance-daily-photo-report.py
+          python3 patches/fnb-cashier-stan-attendance-damage.py
           python3 patches/prevent-pos-double-submit.py
 
       - uses: actions/upload-artifact@v4
