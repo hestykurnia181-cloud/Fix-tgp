@@ -89,8 +89,8 @@ replace("src/screens/ReportsScreen.tsx",
     "  const periodLabel = dateFilter === 'TODAY' ? 'Harian' : dateFilter === 'WEEK' ? 'Mingguan' : 'Bulanan';",
     "  const periodLabel = dateFilter === 'ALL' ? 'Semua Periode' : dateFilter === 'TODAY' ? 'Harian' : dateFilter === 'WEEK' ? 'Mingguan' : 'Bulanan';")
 replace("src/screens/ReportsScreen.tsx",
-    "        {(['TODAY', 'WEEK', 'MONTH'] as const).map((value) => <button key={value} onClick={() => setDateFilter(value)} className={\`px-3 py-1.5 rounded-xl font-bold \${dateFilter === value ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}\`}>{value === 'TODAY' ? 'Harian' : value === 'WEEK' ? 'Mingguan' : 'Bulanan'}</button>)}",
-    "        {(isCashier ? ['TODAY', 'WEEK', 'MONTH', 'ALL'] as const : ['TODAY', 'WEEK', 'MONTH'] as const).map((value) => <button key={value} onClick={() => setDateFilter(value)} className={\`px-3 py-1.5 rounded-xl font-bold \${dateFilter === value ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}\`}>{value === 'TODAY' ? 'Harian' : value === 'WEEK' ? 'Mingguan' : value === 'MONTH' ? 'Bulanan' : 'Semua'}</button>)}")
+    "        {(['TODAY', 'WEEK', 'MONTH'] as const).map((value) => <button key={value} onClick={() => setDateFilter(value)} className={`px-3 py-1.5 rounded-xl font-bold \${dateFilter === value ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>{value === 'TODAY' ? 'Harian' : value === 'WEEK' ? 'Mingguan' : 'Bulanan'}</button>)}",
+    "        {(isCashier ? ['TODAY', 'WEEK', 'MONTH', 'ALL'] as const : ['TODAY', 'WEEK', 'MONTH'] as const).map((value) => <button key={value} onClick={() => setDateFilter(value)} className={`px-3 py-1.5 rounded-xl font-bold \${dateFilter === value ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>{value === 'TODAY' ? 'Harian' : value === 'WEEK' ? 'Mingguan' : value === 'MONTH' ? 'Bulanan' : 'Semua'}</button>)}")
 
 # Damaged reports carry source STAN and photo; stock movements identify their outlet.
 replace("src/types.ts",
@@ -180,7 +180,7 @@ replace("src/context/TgpContext.tsx", """  const reportDamagedGoods = (
       return false;
     }
     if (qty > availableQty) {
-      setErrorMessage(\`Jumlah rusak melebihi stok tersedia (\${availableQty} \${targetItem.unit}) di \${assignedOutlet?.name || 'gudang bisnis'}.\`);
+      setErrorMessage(`Jumlah rusak melebihi stok tersedia (\${availableQty} \${targetItem.unit}) di \${assignedOutlet?.name || 'gudang bisnis'}.`);
       return false;
     }
 
@@ -250,7 +250,7 @@ replace("src/context/TgpContext.tsx", """    // 1. Deduct stock safely
       finalQty: finalStock,
       type: MutationType.DAMAGED_GOODS,
       referenceId: report.reportId,
-      note: \`Write-off barang rusak (\${report.location}): \${report.reason}\`,
+      note: `Write-off barang rusak (\${report.location}): \${report.reason}`,
       timestamp: nowTs,
       performedBy: currentSession?.user.fullName || 'OWNER',
     };
