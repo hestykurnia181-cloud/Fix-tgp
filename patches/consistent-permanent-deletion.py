@@ -17,8 +17,8 @@ s=s[:a]+"""  const deleteItem = async (itemId: string): Promise<boolean> => {
     setItems((prev)=>{const next=prev.filter((i)=>i.itemId!==itemId).map((r)=>r.bomIngredients?.some((x)=>x.rawItemId===itemId)?{...r,bomIngredients:r.bomIngredients.filter((x)=>x.rawItemId!==itemId),updatedAt:Date.now()}:r);saveStored('items',next);return next;});
     setOutletStocks((prev)=>{const next=prev.filter((x)=>x.itemId!==itemId);saveStored('outlet_stocks',next);return next;});
     setPosCart((prev)=>prev.filter((x)=>x.item.itemId!==itemId));
-    addAuditLog('DELETE_ITEM',\`Dihapus permanen: Item '\${item.name}' (\${item.sku}) dari database dan stok\`,activeBusinessId);
-    setUserMessage(\`Item '\${item.name}' berhasil dihapus permanen dari database.\`);return true;
+    addAuditLog('DELETE_ITEM',`Dihapus permanen: Item '${item.name}' (${item.sku}) dari database dan stok`,activeBusinessId);
+    setUserMessage(`Item '${item.name}' berhasil dihapus permanen dari database.`);return true;
   };
 """ + s[b:]
 a=s.index('  const deleteOutlet = (outletId: string): boolean => {');b=s.index('\n  const transferStockToStan = (',a)
@@ -33,7 +33,7 @@ s=s[:a]+"""  const deleteOutlet = async (outletId: string): Promise<boolean> => 
     setOutlets((p)=>p.filter((x)=>x.outletId!==outletId));setOutletStocks((p)=>p.filter((x)=>x.outletId!==outletId));setStanTransfers((p)=>p.filter((x)=>x.outletId!==outletId));
     setUsers((p)=>p.map((u)=>u.outletId===outletId?{...u,outletId:null}:u));
     if(currentSession.user.outletId===outletId){setCurrentSession((p)=>p?{...p,user:{...p.user,outletId:null},staffBinding:p.staffBinding?{...p.staffBinding,outletId:null}:p.staffBinding}:p);setPosCart([]);}
-    addAuditLog('DELETE_OUTLET',\`Deleted permanently STAN/Outlet: \${target.name}\`,target.businessId);setUserMessage(\`STAN '\${target.name}' berhasil dihapus permanen dari database.\`);return true;
+    addAuditLog('DELETE_OUTLET',`Deleted permanently STAN/Outlet: ${target.name}`,target.businessId);setUserMessage(`STAN '${target.name}' berhasil dihapus permanen dari database.`);return true;
   };
 """ + s[b:]
 # The SQL sale-delete RPC now restores stock atomically; update only the in-memory view here.
@@ -53,11 +53,11 @@ rep('src/screens/InventoryScreen.tsx',"""                onClick={() => {
                   if(ok)setItemToDelete(null);
                 }}""",'inventory dialog')
 rep('src/screens/StanOutletScreen.tsx',"""                        onClick={() => {
-                          if (confirm(\`Hapus STAN "\${outlet.name}"?\`)) {
+                          if (confirm(`Hapus STAN "${outlet.name}"?`)) {
                             deleteOutlet(outlet.outletId);
                           }
                         }}""","""                        onClick={async () => {
-                          if(confirm(\`Hapus STAN "\${outlet.name}"?\`))await deleteOutlet(outlet.outletId);
+                          if(confirm(`Hapus STAN "${outlet.name}"?`))await deleteOutlet(outlet.outletId);
                         }}""",'outlet dialog')
 p=root/'src/services/supabaseSyncService.ts';s=p.read_text(encoding='utf-8')
 a=s.index('  private async markRecordDeleted(');b=s.index('  public async flushPendingSync()',a);s=s[:a]+s[b:]
