@@ -159,7 +159,7 @@ replace("src/context/TgpContext.tsx", """  const reportDamagedGoods = (
     reason: string,
     photoDataUrl: string
   ): boolean => {
-    if (!activeBusinessId || qty <= 0 || !reason.trim() || !photoDataUrl || !currentSession) return false;
+    if (!activeBusinessId || !Number.isFinite(qty) || qty <= 0 || !reason.trim() || !photoDataUrl?.startsWith('data:image/') || !currentSession) return false;
     const role = normalizeUserRole(currentSession.user.role);
     const assignedOutlet = role === UserRole.KASIR && currentSession.user.outletId
       ? outlets.find((o) => o.outletId === currentSession.user.outletId && o.businessId === activeBusinessId && o.status === 'ACTIVE')
@@ -507,7 +507,15 @@ s = s.replace("""                        {att.note || (isMasuk ? 'Presensi masuk
                       {photo && <a href={photo} target="_blank" rel="noreferrer" className="inline-block mt-2"><img src={photo} alt="Foto absensi" className="w-16 h-16 rounded-lg object-cover border" /></a>}""")
 p.write_text(s, encoding="utf-8")
 
-# Make migration available inside the extracted app source for release packaging.
+
+# Enforce photo evidence at the context boundary, not only in the UI.
+replace("src/context/TgpContext.tsx",
+    "  recordAttendance: (type: 'MASUK' | 'PULANG', note: string, photoDataUrl?: string) => void;",
+    "  recordAttendance: (type: 'MASUK' | 'PULANG', note: string, photoDataUrl: string) => void;")
+replace("src/context/TgpContext.tsx",
+    "  const recordAttendance = (type: 'MASUK' | 'PULANG', note: string, photoDataUrl?: string) => {\n    if (!activeBusinessId || !currentSession) return;",
+    "  const recordAttendance = (type: 'MASUK' | 'PULANG', note: string, photoDataUrl: string) => {\n    if (!activeBusinessId || !currentSession) return;\n    if (!photoDataUrl || !photoDataUrl.startsWith('data:image/')) { setErrorMessage('Foto wajib dilampirkan untuk absensi.'); return; }")
+\n# Make migration available inside the extracted app source for release packaging.
 migration = root / "supabase/migrations/20261030120000_fnb_cashier_stan_attendance_damage.sql"
 migration.parent.mkdir(parents=True, exist_ok=True)
 migration.write_text("""-- TGP F&B cashier without STAN, personal sales identity, and STAN-bound damaged-goods evidence.
