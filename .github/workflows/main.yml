@@ -6,7 +6,7 @@ name: TGP Management - Android, iOS Simulator & PWA
 
 on:
   push:
-    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart]
+    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart, fix/fnb-cashier-closing-v2]
   workflow_dispatch:
 
 permissions:
@@ -19,40 +19,21 @@ jobs:
   prepare:
     name: Extract TGP ZIP
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Extract project ZIP
         shell: bash
         run: |
           set -euo pipefail
-
           ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
-
-          test -n "$ZIP_FILE" || {
-            echo "No ZIP found at repository root"
-            exit 1
-          }
-
+          test -n "$ZIP_FILE" || { echo "No ZIP found at repository root"; exit 1; }
           rm -rf extracted project
           unzip -q "$ZIP_FILE" -d extracted
-
           PACKAGE_DIR="$(find extracted -type f -name package.json -printf '%h\n' | head -n 1)"
-
-          test -n "$PACKAGE_DIR" || {
-            echo "package.json not found inside ZIP"
-            exit 1
-          }
-
+          test -n "$PACKAGE_DIR" || { echo "package.json not found inside ZIP"; exit 1; }
           mkdir project
           cp -a "$PACKAGE_DIR/." project/
-
-          test -f patches/admin-master.py || {
-            echo "Admin Master patch script missing"
-            exit 1
-          }
-
+          test -f patches/admin-master.py || { echo "Admin Master patch script missing"; exit 1; }
           python3 patches/admin-master.py
           python3 patches/periods.py
           python3 patches/sync.py
@@ -78,13 +59,12 @@ jobs:
           python3 patches/cashier-stan-expenses.py
           python3 patches/consistent-permanent-deletion.py
           python3 patches/stan-net-report-chart.py
-
+          gzip -dc patches/fnb-cashier-closing.patch.gz | patch -d project -p1 --forward
       - uses: actions/upload-artifact@v4
         with:
           name: TGP-normalized-source
           path: project
           retention-days: 7
-
       - uses: actions/upload-artifact@v4
         with:
           name: TGP-inspected-source
@@ -95,63 +75,45 @@ jobs:
     name: Build & Deploy PWA to GitHub Pages
     needs: prepare
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           name: TGP-normalized-source
           path: project
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-
       - name: Patch known type issues
         working-directory: project
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           p = Path('capacitor.config.ts')
           if p.exists():
-              p.write_text(
-                  p.read_text().replace(
-                      '  bundledWebRuntime: false,\n',
-                      ''
-                  )
-              )
-
+              p.write_text(p.read_text().replace('  bundledWebRuntime: false,\n', ''))
           p = Path('src/components/TgpBottomBar.tsx')
           if p.exists():
-              p.write_text(
-                  p.read_text().replace(
-                      'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
-                      'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
-                  )
-              )
+              p.write_text(p.read_text().replace(
+                  'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
+                  'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
+              ))
           PY
-
       - name: Install dependencies
         working-directory: project
         run: npm install --no-audit --no-fund
-
       - name: Lint
         working-directory: project
         run: npm run lint
-
       - name: Build PWA
         working-directory: project
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
-
       - name: Verify PWA
         working-directory: project
         run: |
@@ -161,9 +123,7 @@ jobs:
           test -f dist/icons/icon-192.png
           test -f dist/icons/icon-512.png
           touch dist/.nojekyll
-
       - uses: actions/configure-pages@v5
-
       - uses: actions/upload-pages-artifact@v4
         with:
           path: project/dist
@@ -173,19 +133,15 @@ jobs:
     name: Deploy PWA
     needs: web-pwa
     runs-on: ubuntu-latest
-
     permissions:
       pages: write
       id-token: write
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     concurrency:
       group: github-pages-production
       cancel-in-progress: false
-
     steps:
       - id: deployment
         name: Deploy to GitHub Pages
@@ -198,84 +154,62 @@ jobs:
     name: Android APK
     needs: prepare
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           name: TGP-normalized-source
           path: project
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-
       - name: Patch known type issues
         working-directory: project
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           p = Path('capacitor.config.ts')
           if p.exists():
-              p.write_text(
-                  p.read_text().replace(
-                      '  bundledWebRuntime: false,\n',
-                      ''
-                  )
-              )
-
+              p.write_text(p.read_text().replace('  bundledWebRuntime: false,\n', ''))
           p = Path('src/components/TgpBottomBar.tsx')
           if p.exists():
-              p.write_text(
-                  p.read_text().replace(
-                      'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
-                      'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
-                  )
-              )
+              p.write_text(p.read_text().replace(
+                  'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
+                  'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
+              ))
           PY
-
       - name: Install dependencies
         working-directory: project
         run: npm install --no-audit --no-fund
-
       - name: Lint
         working-directory: project
         run: npm run lint
-
       - name: Build web
         working-directory: project
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
-
       - name: Add Android platform
         working-directory: project
         run: |
           npx cap add android
           npx cap sync android
-
       - name: Build Android APK
         working-directory: project/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-
       - name: Collect APK
         working-directory: project
         run: |
           mkdir -p artifacts
-          cp android/app/build/outputs/apk/debug/app-debug.apk \
-            artifacts/TGP-Management-Android.apk
-
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/TGP-Management-Android.apk
       - uses: actions/upload-artifact@v4
         with:
           name: TGP-Management-Android-APK
@@ -287,49 +221,34 @@ jobs:
     name: iOS Simulator App
     needs: prepare
     runs-on: macos-15
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           name: TGP-normalized-source
           path: project
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-
       - name: Install dependencies
         working-directory: project
         run: npm install --no-audit --no-fund
-
       - name: Patch known type issues
         working-directory: project
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           p = Path('capacitor.config.ts')
           if p.exists():
-              p.write_text(
-                  p.read_text().replace(
-                      '  bundledWebRuntime: false,\n',
-                      ''
-                  )
-              )
-
+              p.write_text(p.read_text().replace('  bundledWebRuntime: false,\n', ''))
           p = Path('src/components/TgpBottomBar.tsx')
           if p.exists():
-              p.write_text(
-                  p.read_text().replace(
-                      'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
-                      'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
-                  )
-              )
+              p.write_text(p.read_text().replace(
+                  'if (role === UserRole.OWNER || role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)',
+                  'if (role === UserRole.ADMIN_OWNER || role === UserRole.ADMIN_DIVISI)'
+              ))
           PY
-
       - name: Lint and build
         working-directory: project
         run: |
@@ -338,82 +257,47 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
-
       - name: Add iOS platform
         working-directory: project
         run: |
           npx cap add ios
           npx cap sync ios
-
       - name: Install CocoaPods when available
         working-directory: project
         run: |
-          if [ -f ios/App/Podfile ]; then
-            cd ios/App
-            pod install
-          fi
-
+          if [ -f ios/App/Podfile ]; then cd ios/App; pod install; fi
       - name: Select Xcode
         run: |
-          if [ -d /Applications/Xcode_16.4.app ]; then
-            sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-          fi
-
+          if [ -d /Applications/Xcode_16.4.app ]; then sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer; fi
           xcodebuild -version
-
       - name: Locate Xcode project/workspace
         working-directory: project
         id: iospath
         shell: bash
         run: |
           set -euo pipefail
-
           if [ -f ios/App/App.xcworkspace/contents.xcworkspacedata ]; then
             echo 'kind=workspace' >> "$GITHUB_OUTPUT"
             echo 'path=ios/App/App.xcworkspace' >> "$GITHUB_OUTPUT"
-
           elif [ -f ios/App/App.xcodeproj/project.pbxproj ]; then
             echo 'kind=project' >> "$GITHUB_OUTPUT"
             echo 'path=ios/App/App.xcodeproj' >> "$GITHUB_OUTPUT"
-
           else
             echo 'No iOS workspace or Xcode project found'
             exit 1
           fi
-
       - name: Build unsigned iOS Simulator app
         working-directory: project
         shell: bash
         run: |
-          if [ '${{ steps.iospath.outputs.kind }}' = 'workspace' ]; then
-            TARGET=(-workspace '${{ steps.iospath.outputs.path }}')
-          else
-            TARGET=(-project '${{ steps.iospath.outputs.path }}')
-          fi
-
-          xcodebuild "${TARGET[@]}" \
-            -scheme App \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -derivedDataPath build/ios-derived-data \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            build
-
+          if [ '${{ steps.iospath.outputs.kind }}' = 'workspace' ]; then TARGET=(-workspace '${{ steps.iospath.outputs.path }}'); else TARGET=(-project '${{ steps.iospath.outputs.path }}'); fi
+          xcodebuild "${TARGET[@]}" -scheme App -configuration Debug -sdk iphonesimulator -derivedDataPath build/ios-derived-data CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
       - name: Package iOS Simulator app
         working-directory: project
         run: |
           mkdir -p artifacts
-
-          test -d \
-            build/ios-derived-data/Build/Products/Debug-iphonesimulator/App.app
-
-          ditto -c -k \
-            --sequesterRsrc \
-            --keepParent \
-            build/ios-derived-data/Build/Products/Debug-iphonesimulator/App.app \
-            artifacts/TGP-Management-iOS-Simulator.app.zip
-
+          test -d build/ios-derived-data/Build/Products/Debug-iphonesimulator/App.app
+          ditto -c -k --sequesterRsrc --keepParent build/ios-derived-data/Build/Products/Debug-iphonesimulator/App.app artifacts/TGP-Management-iOS-Simulator.app.zip
       - uses: actions/upload-artifact@v4
         with:
           name: TGP-Management-iOS-Simulator
@@ -423,12 +307,8 @@ jobs:
 
   verify:
     name: Final Verification
-    needs:
-      - web-pwa
-      - android
-      - ios
+    needs: [web-pwa, android, ios]
     runs-on: ubuntu-latest
-
     steps:
       - name: Report
         run: |
