@@ -6,7 +6,7 @@ name: TGP Management - Android, iOS Simulator & PWA
 
 on:
   push:
-    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion]
+    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart]
   workflow_dispatch:
 
 permissions:
@@ -77,6 +77,7 @@ jobs:
           python3 patches/prevent-pos-double-submit.py
           python3 patches/cashier-stan-expenses.py
           python3 patches/consistent-permanent-deletion.py
+          python3 patches/stan-net-report-chart.py
 
       - uses: actions/upload-artifact@v4
         with:
