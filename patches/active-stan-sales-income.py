@@ -153,4 +153,14 @@ replace_once(
     'Sekap Bungo-only finance subtitle'
 )
 
-print('Applied active-STAN income reconciliation only to Sekap Bungo; other business reporting remains unchanged.')
+
+# Sekap Bungo report balance must equal the sum of each active STAN's Sisa Bersih.
+# Other businesses continue using the original business-level finance summary.
+replace_once(
+    'src/screens/ReportsScreen.tsx',
+    '<StatCard title="Saldo Bersih Unit" value={formatRupiah(activeBusinessFinance.netBalance)} icon={<DollarSign className="w-4 h-4" />} color={activeBusinessFinance.netBalance >= 0 ? \'blue\' : \'rose\'} subtitle="Khusus OWNER / ADMIN OWNER" />',
+    '<StatCard title="Saldo Bersih Unit" value={formatRupiah(isSekapBungo ? stanNetTotal : activeBusinessFinance.netBalance)} icon={<DollarSign className="w-4 h-4" />} color={(isSekapBungo ? stanNetTotal : activeBusinessFinance.netBalance) >= 0 ? \'blue\' : \'rose\'} subtitle={isSekapBungo ? "Akumulasi Sisa Bersih seluruh STAN aktif" : "Khusus OWNER / ADMIN OWNER"} />',
+    'Sekap Bungo unit balance equals active STAN residual balances'
+)
+
+print('Applied active-STAN income reconciliation and STAN residual balance only to Sekap Bungo; other business reporting remains unchanged.')
