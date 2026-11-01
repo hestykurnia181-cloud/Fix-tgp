@@ -6,7 +6,7 @@ name: TGP Management - Android, iOS Simulator & PWA
 
 on:
   push:
-    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart, fix/fnb-cashier-closing-v2, fix/fnb-cashier-navigation-all-stans, fix/damaged-goods-white-screen, fix/damaged-goods-dialog-mount, fix/damaged-goods-runtime-guard, fix/cashier-attendance-multiple-sessions, fix/sekap-bungo-cashier-attendance-gates, fix/cashier-stan-two-daily-shifts, fix/armen-cashier-clockout-gate]
+    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart, fix/fnb-cashier-closing-v2, fix/fnb-cashier-navigation-all-stans, fix/damaged-goods-white-screen, fix/damaged-goods-dialog-mount, fix/damaged-goods-runtime-guard, fix/cashier-attendance-multiple-sessions, fix/sekap-bungo-cashier-attendance-gates, fix/cashier-stan-two-daily-shifts, fix/armen-cashier-clockout-gate, fix/armen-clockout-live-attendance-and-payment-labels]
   workflow_dispatch:
 
 permissions:
@@ -65,6 +65,7 @@ jobs:
           python3 patches/cashier-attendance-screen-gates.py
           python3 patches/cashier-attendance-two-shifts.py
           python3 patches/cashier-clockout-authoritative-validation.py
+          python3 patches/cashier-clockout-live-attendance-payment-labels.py
           python3 patches/cashier-closing-payment-breakdown.py
           python3 patches/damaged-goods-white-screen.py
           python3 patches/damaged-goods-conditional-mount.py
