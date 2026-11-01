@@ -73,6 +73,7 @@ jobs:
           python3 patches/closing-total-income-stock-sales.py
           python3 patches/active-stan-sales-income.py
           python3 patches/teboo-admin-owner-report-scope.py
+          python3 patches/sekap-bungo-admin-owner-ready-stock-discovery.py
       - uses: actions/upload-artifact@v4
         with:
           name: TGP-normalized-source
