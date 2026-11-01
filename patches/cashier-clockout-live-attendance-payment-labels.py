@@ -137,6 +137,10 @@ if new_closing not in s:
     if old_closing not in s:
         raise SystemExit("[armen-clockout] closing/damage authoritative validation anchor missing")
     s = s.replace(old_closing, new_closing, 1)
+old_audit = "addAuditLog('CASHIER_CLOSING_CREATED', `Closing ${outlet.name} oleh ${currentSession.user.fullName}; bersih Rp ${closing.netIncome.toLocaleString('id-ID')}`, activeBusinessId);"
+new_audit = "addAuditLog('CASHIER_CLOSING_CREATED', `Closing ${outlet.name} oleh ${currentSession.user.fullName}; rincian pembayaran tersimpan per metode`, activeBusinessId);"
+if old_audit in s:
+    s = s.replace(old_audit, new_audit, 1)
 context.write_text(s, encoding="utf-8")
 
 # 4) Make closing history unmistakably payment-method based, never a global net-income field.
