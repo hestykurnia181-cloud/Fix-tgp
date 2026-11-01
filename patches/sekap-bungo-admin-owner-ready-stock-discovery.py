@@ -1,11 +1,12 @@
 from pathlib import Path
-def dump(path,a,b):
+import re
+def show(path,pats,r=5):
  lines=Path('project',path).read_text(encoding='utf-8').splitlines()
- print(f'\\n### {path}:{a}-{b}')
- for i in range(a-1,min(b,len(lines))): print(f'{i+1}: {lines[i]}')
-dump('src/types.ts',285,330)
-dump('src/context/TgpContext.tsx',130,170)
-dump('src/context/TgpContext.tsx',2040,2145)
-dump('src/context/TgpContext.tsx',2318,2375)
-dump('src/context/TgpContext.tsx',3518,3568)
-dump('src/screens/InventoryScreen.tsx',410,448)
+ for pat in pats:
+  for i,x in enumerate(lines):
+   if re.search(pat,x,re.I):
+    print(f'\\n### {path}:{i+1} {pat}')
+    for j in range(max(0,i-r),min(len(lines),i+r+1)): print(f'{j+1}: {lines[j]}')
+show('src/components/TgpBottomBar.tsx',[r'INVENTORY',r'Inventory',r'Gudang',r'OWNER',r'ADMIN_OWNER'],6)
+show('src/App.tsx',[r'INVENTORY',r'InventoryScreen',r'allowedScreens',r'case .*INVENTORY'],8)
+show('src/types.ts',[r'enum MutationType',r'interface StockMutationEntity'],16)
