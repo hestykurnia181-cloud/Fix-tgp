@@ -61,6 +61,7 @@ jobs:
           python3 patches/stan-net-report-chart.py
           gzip -dc patches/fnb-cashier-closing.patch.gz | patch -d project -p1 --forward
           python3 patches/fnb-cashier-navigation-fix.py
+          python3 patches/cashier-attendance-session-guard.py
           python3 patches/damaged-goods-white-screen.py
           python3 patches/damaged-goods-conditional-mount.py
           python3 patches/damaged-goods-runtime-guard.py
