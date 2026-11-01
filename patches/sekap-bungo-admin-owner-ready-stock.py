@@ -126,13 +126,13 @@ replace_once(
     'src/screens/InventoryScreen.tsx',
     """                      <td className="py-3 px-3 text-right">
                         <span
-                          className={\`font-black text-sm \${
+                          className={`font-black text-sm ${
                             item.type !== 'SERVICE' && item.stockQuantity <= 5
                               ? 'text-rose-600'
                               : 'text-slate-900'
-                          }\`}
+                          }`}
                         >
-                          {item.type === 'SERVICE' ? 'Layanan' : \`\${item.stockQuantity} \${item.unit}\`}
+                          {item.type === 'SERVICE' ? 'Layanan' : `${item.stockQuantity} ${item.unit}`}
                         </span>
                       </td>""",
     """                      <td className="py-3 px-3 text-right">
@@ -143,7 +143,7 @@ replace_once(
                               min="0"
                               step="1"
                               inputMode="numeric"
-                              aria-label={\`Jumlah stok \${item.name}\`}
+                              aria-label={`Jumlah stok ${item.name}`}
                               value={stockQuantityDraft}
                               onChange={(e) => setStockQuantityDraft(e.target.value)}
                               className="w-20 rounded-lg border border-blue-300 px-2 py-1.5 text-right text-sm font-bold focus:ring-2 focus:ring-blue-500"
@@ -178,13 +178,13 @@ replace_once(
                         ) : (
                           <div className="flex items-center justify-end gap-2">
                             <span
-                              className={\`font-black text-sm \${
+                              className={`font-black text-sm ${
                                 item.type !== 'SERVICE' && item.stockQuantity <= 5
                                   ? 'text-rose-600'
                                   : 'text-slate-900'
-                              }\`}
+                              }`}
                             >
-                              {item.type === 'SERVICE' ? 'Layanan' : \`\${item.stockQuantity} \${item.unit}\`}
+                              {item.type === 'SERVICE' ? 'Layanan' : `${item.stockQuantity} ${item.unit}`}
                             </span>
                             {canEditReadyStock && !isRaw && item.type !== 'SERVICE' && (
                               <button
