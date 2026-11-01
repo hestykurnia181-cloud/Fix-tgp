@@ -63,7 +63,7 @@ for index, line in enumerate(lines):
             indent + "  return false;",
             indent + "}",
         ]
-        s = "\\n".join(lines) + "\\n"
+        s = "\n".join(lines) + "\n"
         break
 else:
     if "let serverReturn: any = null;" not in s:
