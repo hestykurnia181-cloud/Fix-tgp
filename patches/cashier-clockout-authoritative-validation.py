@@ -39,6 +39,10 @@ if new_label not in s:
         raise SystemExit("[clockout-gate] clock-out button label anchor missing")
     s = s.replace(old_label, new_label, 1)
 
+s = s.replace("    cashierClosings,\n", "", 1)
+s = s.replace("  const latestClockIn = myAttendancesToday.filter((a)=>a.type==='MASUK').sort((a,b)=>b.timestamp-a.timestamp)[0];\n", "", 1)
+s = s.replace("import { UserRole } from '../types';\n", "", 1)
+
 attendance.write_text(s, encoding="utf-8")
 
 context = root / "src/context/TgpContext.tsx"
