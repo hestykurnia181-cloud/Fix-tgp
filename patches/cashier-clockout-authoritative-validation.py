@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 root = Path("project")
 
@@ -48,23 +47,26 @@ attendance.write_text(s, encoding="utf-8")
 
 context = root / "src/context/TgpContext.tsx"
 s = context.read_text(encoding="utf-8")
-rpc_pattern = re.compile(r"(?m)^(?P<indent>[ \\t]*)const serverReturn = await supabaseSyncService\\.finalizeCashierStockReturn\\((?P<args>[^;\\n]+)\\);[ \\t]*$")
-match = rpc_pattern.search(s)
-if match:
-    indent = match.group("indent")
-    args = match.group("args")
-    replacement = (
-        f"{indent}let serverReturn: any = null;\\n"
-        f"{indent}try {{\\n"
-        f"{indent}  serverReturn = await supabaseSyncService.finalizeCashierStockReturn({args});\\n"
-        f"{indent}}} catch (error: any) {{\\n"
-        f"{indent}  const detail = error?.message || error?.details || error?.hint || 'Kesalahan database tidak diketahui.';\\n"
-        f"{indent}  setErrorMessage('Pengembalian stok STAN gagal: ' + detail + ' Absensi pulang belum dicatat. Silakan coba lagi atau hubungi Admin.');\\n"
-        f"{indent}  return false;\\n"
-        f"{indent}}}"
-    )
-    s = rpc_pattern.sub(lambda _: replacement, s, count=1)
-elif "let serverReturn: any = null;" not in s:
-    raise SystemExit("[clockout-gate] stock return RPC anchor missing")
+lines = s.splitlines()
+for index, line in enumerate(lines):
+    marker = "const serverReturn = await supabaseSyncService.finalizeCashierStockReturn("
+    if marker in line:
+        indent = line[:len(line) - len(line.lstrip())]
+        args = line.split(marker, 1)[1].rsplit(");", 1)[0]
+        lines[index:index + 1] = [
+            indent + "let serverReturn: any = null;",
+            indent + "try {",
+            indent + "  serverReturn = await supabaseSyncService.finalizeCashierStockReturn(" + args + ");",
+            indent + "} catch (error: any) {",
+            indent + "  const detail = error?.message || error?.details || error?.hint || 'Kesalahan database tidak diketahui.';",
+            indent + "  setErrorMessage('Pengembalian stok STAN gagal: ' + detail + ' Absensi pulang belum dicatat. Silakan coba lagi atau hubungi Admin.');",
+            indent + "  return false;",
+            indent + "}",
+        ]
+        s = "\\n".join(lines) + "\\n"
+        break
+else:
+    if "let serverReturn: any = null;" not in s:
+        raise SystemExit("[clockout-gate] stock return RPC anchor missing")
 context.write_text(s, encoding="utf-8")
 print("[clockout-gate] clock-out button no longer depends on potentially stale client closing cache; recordAttendance remains authoritative and reports stock-return RPC errors.")
