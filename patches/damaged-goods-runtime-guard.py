@@ -84,7 +84,10 @@ boundary = """class ReportDamagedGoodsDialogErrorBoundary extends React.Componen
   { children: React.ReactNode },
   { error: string | null }
 > {
-  state = { error: null as string | null };
+  props: { children: React.ReactNode };
+  state: { error: string | null } = { error: null };
+
+  setState(state: { error: string | null }): void;
 
   static getDerivedStateFromError(error: unknown) {
     return { error: error instanceof Error ? error.message : String(error) };
