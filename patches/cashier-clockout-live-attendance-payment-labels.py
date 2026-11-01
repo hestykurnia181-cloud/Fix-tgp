@@ -146,15 +146,15 @@ context.write_text(s, encoding="utf-8")
 closing = root / "src/screens/CashierClosingScreen.tsx"
 s = closing.read_text(encoding="utf-8")
 old_summary = "Cash bersih {rupiah(getPaymentBreakdown(c).cashNet)} · QRIS {rupiah(getPaymentBreakdown(c).qris)} · TF {rupiah(getPaymentBreakdown(c).transfer)}"
-new_summary = "Cash masuk {rupiah(getPaymentBreakdown(c).cash)} · QRIS {rupiah(getPaymentBreakdown(c).qris)} · Transfer {rupiah(getPaymentBreakdown(c).transfer)} · Debit {rupiah(getPaymentBreakdown(c).debit)}"
+new_summary = "Total pendapatan {rupiah(getPaymentBreakdown(c).cash)} · QRIS {rupiah(getPaymentBreakdown(c).qris)} · Transfer {rupiah(getPaymentBreakdown(c).transfer)} · Debit {rupiah(getPaymentBreakdown(c).debit)}"
 if new_summary not in s:
     if old_summary not in s:
         raise SystemExit("[armen-clockout] closing history payment summary anchor missing")
     s = s.replace(old_summary, new_summary, 1)
 s = s.replace("['Cash sebelum pengeluaran',rupiah(b.cash)],['Pengeluaran (potong Cash)',rupiah(b.expense)],['Cash setelah pengeluaran',rupiah(b.cashNet)]",
-              "['Cash masuk',rupiah(b.cash)],['Pengeluaran (mengurangi Cash)',rupiah(b.expense)],['Sisa Cash',rupiah(b.cashNet)]", 1)
+              "['Total pendapatan',rupiah(b.cash)],['Pengeluaran (mengurangi Cash)',rupiah(b.expense)],['Sisa Cash',rupiah(b.cashNet)]", 1)
 s = s.replace("['Cash sebelum pengeluaran',monthlyPayments.cash],['Pengeluaran (potong Cash)',monthlyPayments.expense],['Cash setelah pengeluaran',monthlyPayments.cashNet]",
-              "['Cash masuk',monthlyPayments.cash],['Pengeluaran (mengurangi Cash)',monthlyPayments.expense],['Sisa Cash',monthlyPayments.cashNet]", 1)
+              "['Total pendapatan',monthlyPayments.cash],['Pengeluaran (mengurangi Cash)',monthlyPayments.expense],['Sisa Cash',monthlyPayments.cashNet]", 1)
 closing.write_text(s, encoding="utf-8")
 
 # Remove the misleading global net figure from the cashier closing audit description.
