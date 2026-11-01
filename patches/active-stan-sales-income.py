@@ -117,7 +117,7 @@ replace_once(
     '<StatCard title="Total Pemasukan STAN Aktif" value={formatRupiah(totalSalesRevenue)} icon={<Receipt className="w-4 h-4" />} color="teal" subtitle={`${filteredSales.length} struk dari STAN aktif`} />',
     'report metric label'
 )
-replace_once('src/screens/ReportsScreen.tsx', "['Total Penjualan', totalSalesRevenue],", "['Total Pemasukan STAN Aktif', totalSalesRevenue], 'excel summary label')
+replace_once('src/screens/ReportsScreen.tsx', "['Total Penjualan', totalSalesRevenue],", "['Total Pemasukan STAN Aktif', totalSalesRevenue],", 'excel summary label')
 replace_once(
     'src/screens/ReportsScreen.tsx',
     '<strong>Total penjualan:</strong> ${formatRupiah(totalSalesRevenue)}',
