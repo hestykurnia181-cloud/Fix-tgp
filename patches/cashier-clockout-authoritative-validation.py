@@ -45,8 +45,54 @@ s = s.replace("import { UserRole } from '../types';\n", "", 1)
 
 attendance.write_text(s, encoding="utf-8")
 
+service = root / "src/services/supabaseSyncService.ts"
+service_source = service.read_text(encoding="utf-8")
+service_anchor = "  public async finalizeCashierStockReturn(closingId: string, performedBy: string): Promise<any | null> {"
+service_method = """  public async fetchCashierClosingForShift(cashierUserId: string, businessId: string, shiftStartedAt: number): Promise<CashierClosingEntity | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+    const { data, error } = await supabase
+      .from('cashier_closings')
+      .select('*')
+      .eq('cashier_user_id', cashierUserId)
+      .eq('business_id', businessId)
+      .eq('shift_started_at', shiftStartedAt)
+      .in('status', ['READY_FOR_CLOCK_OUT', 'COMPLETED'])
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapCashierClosingFromDb(data) : null;
+  }
+
+"""
+if "fetchCashierClosingForShift(" not in service_source:
+    if service_anchor not in service_source:
+        raise SystemExit("[clockout-gate] closing fetch insertion anchor missing")
+    service_source = service_source.replace(service_anchor, service_method + service_anchor, 1)
+    service.write_text(service_source, encoding="utf-8")
+
 context = root / "src/context/TgpContext.tsx"
 s = context.read_text(encoding="utf-8")
+old_closing = """      completedClosing = cashierClosings.find((c) => c.cashierUserId === currentSession.user.userId && c.shiftStartedAt === shiftStartedAt && (c.status === 'READY_FOR_CLOCK_OUT' || c.status === 'COMPLETED'));
+      if (!completedClosing) { setErrorMessage('Kasir wajib menyelesaikan closing sebelum absen pulang.'); return false; }"""
+new_closing = """      completedClosing = cashierClosings.find((c) => c.cashierUserId === currentSession.user.userId && c.shiftStartedAt === shiftStartedAt && (c.status === 'READY_FOR_CLOCK_OUT' || c.status === 'COMPLETED'));
+      if (!completedClosing) {
+        try {
+          completedClosing = await supabaseSyncService.fetchCashierClosingForShift(currentSession.user.userId, activeBusinessId, shiftStartedAt);
+        } catch (error: any) {
+          const detail = error?.message || error?.details || error?.hint || 'Kesalahan database tidak diketahui.';
+          setErrorMessage('Gagal memeriksa closing kasir: ' + detail + '. Silakan coba lagi.');
+          return false;
+        }
+        if (completedClosing) {
+          const verifiedClosing = completedClosing;
+          setCashierClosings((prev) => prev.some((c) => c.closingId === verifiedClosing.closingId) ? prev : [verifiedClosing, ...prev]);
+        }
+      }
+      if (!completedClosing) { setErrorMessage('Kasir wajib menyelesaikan closing sebelum absen pulang. Closing belum ditemukan di database.'); return false; }"""
+if new_closing not in s:
+    if old_closing not in s:
+        raise SystemExit("[clockout-gate] closing cache fallback anchor missing")
+    s = s.replace(old_closing, new_closing, 1)
 lines = s.splitlines()
 for index, line in enumerate(lines):
     marker = "const serverReturn = await supabaseSyncService.finalizeCashierStockReturn("
