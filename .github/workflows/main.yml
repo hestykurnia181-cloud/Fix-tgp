@@ -6,7 +6,7 @@ name: TGP Management - Android, iOS Simulator & PWA
 
 on:
   push:
-    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart, fix/fnb-cashier-closing-v2, fix/fnb-cashier-navigation-all-stans, fix/damaged-goods-white-screen, fix/damaged-goods-dialog-mount, fix/damaged-goods-runtime-guard, fix/cashier-attendance-multiple-sessions, fix/sekap-bungo-cashier-attendance-gates, fix/cashier-stan-two-daily-shifts, fix/armen-cashier-clockout-gate, fix/armen-clockout-live-attendance-and-payment-labels, fix/pwa-network-first-clockout-refresh, fix/closing-total-income-stock-sales, fix/active-stan-sales-income-alignment, fix/scope-income-report-sekap-bungo-only, fix/sekap-bungo-net-balance-from-stan-residual, fix/teboo-admin-owner-report-audit-scope]
+    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart, fix/fnb-cashier-closing-v2, fix/fnb-cashier-navigation-all-stans, fix/damaged-goods-white-screen, fix/damaged-goods-dialog-mount, fix/damaged-goods-runtime-guard, fix/cashier-attendance-multiple-sessions, fix/sekap-bungo-cashier-attendance-gates, fix/cashier-stan-two-daily-shifts, fix/armen-cashier-clockout-gate, fix/armen-clockout-live-attendance-and-payment-labels, fix/pwa-network-first-clockout-refresh, fix/closing-total-income-stock-sales, fix/active-stan-sales-income-alignment, fix/scope-income-report-sekap-bungo-only, fix/sekap-bungo-net-balance-from-stan-residual, fix/teboo-admin-owner-report-audit-scope, fix/sekap-bungo-admin-owner-edit-ready-stock]
   workflow_dispatch:
 
 permissions:
@@ -73,6 +73,7 @@ jobs:
           python3 patches/closing-total-income-stock-sales.py
           python3 patches/active-stan-sales-income.py
           python3 patches/teboo-admin-owner-report-scope.py
+          python3 patches/sekap-bungo-admin-owner-ready-stock.py
       - uses: actions/upload-artifact@v4
         with:
           name: TGP-normalized-source
