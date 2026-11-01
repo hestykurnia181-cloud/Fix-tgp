@@ -80,52 +80,12 @@ part = source[start:end]
 part = part.replace("                value={itemId}\n                onChange={(e) => setItemId(e.target.value)}", "                value={effectiveItemId}\n                onChange={(e) => setItemId(e.target.value)}", 1)
 source = source[:start] + part + source[end:]
 
-boundary = """class ReportDamagedGoodsDialogErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { error: string | null }
-> {
-  props: { children: React.ReactNode };
-  state: { error: string | null } = { error: null };
-
-  setState(state: { error: string | null }): void;
-
-  static getDerivedStateFromError(error: unknown) {
-    return { error: error instanceof Error ? error.message : String(error) };
-  }
-
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("Report damaged goods dialog crashed:", error, info);
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-            <h3 className="font-extrabold text-rose-700">Form laporan barang rusak gagal dimuat</h3>
-            <p className="mt-2 text-sm text-slate-600">Aplikasi berhasil menangkap kesalahan agar halaman tidak menjadi putih.</p>
-            <p className="mt-2 text-xs text-slate-500 break-words">{this.state.error}</p>
-            <button type="button" onClick={() => this.setState({ error: null })} className="mt-4 px-4 py-2 rounded-xl bg-rose-600 text-white font-bold">Coba lagi</button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-export const ReportDamagedGoodsDialog: React.FC<ReportDamagedGoodsDialogProps> = (props) => (
-  <ReportDamagedGoodsDialogErrorBoundary>
-    <ReportDamagedGoodsDialogContent {...props} />
-  </ReportDamagedGoodsDialogErrorBoundary>
-);
-
-"""
-marker = "export const AddLedgerDialog"
-if "class ReportDamagedGoodsDialogErrorBoundary" not in source:
-    if marker not in source:
-        raise SystemExit("Damaged goods runtime guard: insertion point not found")
-    source = source.replace(marker, boundary + marker, 1)
+# Keep the dialog isolated to its own component; avoid a class boundary that
+# is incompatible with the project's React type configuration.
+wrapper_start = source.find("class ReportDamagedGoodsDialogErrorBoundary")
+wrapper_end = source.find("export const AddLedgerDialog", wrapper_start)
+if wrapper_start >= 0 and wrapper_end >= 0:
+    source = source[:wrapper_start] + "export const ReportDamagedGoodsDialog: React.FC<ReportDamagedGoodsDialogProps> = ReportDamagedGoodsDialogContent;\n\n" + source[wrapper_end:]
 
 path.write_text(source)
 print("Damaged goods dialog now uses safe stock selection and an error boundary")
