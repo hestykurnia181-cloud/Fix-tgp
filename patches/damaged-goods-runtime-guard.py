@@ -92,7 +92,7 @@ if "export const ReportDamagedGoodsDialog" not in source:
     add_ledger = source.find("export const AddLedgerDialog")
     if add_ledger < 0:
         raise SystemExit("Damaged goods runtime guard: insertion point not found")
-    source = source[:add_ledger] + "export const ReportDamagedGoodsDialog: React.FC<ReportDamagedGoodsDialogProps> = ReportDamagedGoodsDialogContent;\\n\\n" + source[add_ledger:]
+    source = source[:add_ledger] + "export const ReportDamagedGoodsDialog: React.FC<ReportDamagedGoodsDialogProps> = ReportDamagedGoodsDialogContent;\n\n" + source[add_ledger:]
 
 path.write_text(source)
-print("Damaged goods dialog now uses safe stock selection and an error boundary")
+print("Damaged goods dialog now uses safe stock selection and preserves its named export")
