@@ -1,21 +1,20 @@
 from pathlib import Path
 import re
-
-ROOT = Path('project')
-terms = re.compile(r'siap\s*jual|stok\s*siap|ready\s*stock|readyToSell|readyStock|availableStock|stockReady', re.I)
-for path in sorted((ROOT / 'src').rglob('*')):
-    if not path.is_file() or path.suffix not in {'.tsx', '.ts', '.jsx', '.js'}:
-        continue
-    try:
-        lines = path.read_text(encoding='utf-8').splitlines()
-    except Exception:
-        continue
-    hits = [i for i, line in enumerate(lines) if terms.search(line)]
-    if hits:
-        print(f'\n=== STOCK READY MATCHES: {path} ===')
-        shown = set()
-        for i in hits:
-            for j in range(max(0, i-5), min(len(lines), i+7)):
-                if j not in shown:
-                    print(f'{j+1}: {lines[j]}')
-                    shown.add(j)
+ROOT=Path('project')
+def dump(path, ranges=None, patterns=None, radius=8):
+    p=ROOT/path
+    lines=p.read_text(encoding='utf-8').splitlines()
+    print(f'\\n######## {path} ({len(lines)} lines) ########')
+    if ranges:
+        for a,b in ranges:
+            print(f'--- lines {a}-{b} ---')
+            for i in range(a-1,min(b,len(lines))): print(f'{i+1}: {lines[i]}')
+    if patterns:
+        for pat in patterns:
+            hits=[i for i,x in enumerate(lines) if re.search(pat,x,re.I)]
+            for i in hits:
+                print(f'--- pattern {pat}, around {i+1} ---')
+                for j in range(max(0,i-radius),min(len(lines),i+radius+1)): print(f'{j+1}: {lines[j]}')
+dump('src/screens/InventoryScreen.tsx',ranges=[(1,420)])
+dump('src/types.ts',patterns=[r'interface InventoryItem',r'type InventoryItem',r'interface Item',r'stockQuantity',r'interface OutletStock',r'type OutletStock'])
+dump('src/context/TgpContext.tsx',patterns=[r'update.*Item',r'update.*Stock',r'stockQuantity',r'finishedGoods',r'InventoryItem'])
