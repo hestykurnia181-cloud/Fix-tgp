@@ -197,8 +197,36 @@ if new_sw not in s:
 main.write_text(s, encoding="utf-8")
 
 sw = root / "public/sw.js"
-s = sw.read_text(encoding="utf-8")
-s = s.replace("const CACHE_VERSION = 'tgp-management-v2';", "const CACHE_VERSION = 'tgp-management-v3';", 1)
-sw.write_text(s, encoding="utf-8")
+# Use network-first for application assets. The previous cache-first strategy
+# could keep serving an older JS bundle to installed PWAs after deployment.
+sw.write_text("""const CACHE_VERSION = 'tgp-management-v4';
+const APP_SHELL = ['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE_VERSION).then(cache => cache.addAll(APP_SHELL)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  if (req.mode === 'navigate') {
+    event.respondWith(fetch(req, { cache: 'no-store' }).then(res => {
+      if (res.ok) caches.open(CACHE_VERSION).then(cache => cache.put('./index.html', res.clone()));
+      return res;
+    }).catch(() => caches.match('./index.html')));
+    return;
+  }
+  if (!['script','style','image','font'].includes(req.destination)) return;
+  event.respondWith(fetch(req, { cache: 'no-store' }).then(res => {
+    if (res.ok) caches.open(CACHE_VERSION).then(cache => cache.put(req, res.clone()));
+    return res;
+  }).catch(() => caches.match(req)));
+});
+""", encoding="utf-8")
 
 print("[armen-clockout] clock-out now uses fresh server attendance, closing and damage approval; closing history is payment-method based; PWA forces update checks.")
