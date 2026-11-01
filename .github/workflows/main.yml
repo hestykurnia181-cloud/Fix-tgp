@@ -65,8 +65,8 @@ jobs:
           python3 patches/cashier-attendance-screen-gates.py
           python3 patches/cashier-attendance-two-shifts.py
           python3 patches/cashier-clockout-authoritative-validation.py
-          python3 patches/cashier-clockout-live-attendance-payment-labels.py
           python3 patches/cashier-closing-payment-breakdown.py
+          python3 patches/cashier-clockout-live-attendance-payment-labels.py
           python3 patches/damaged-goods-white-screen.py
           python3 patches/damaged-goods-conditional-mount.py
           python3 patches/damaged-goods-runtime-guard.py
