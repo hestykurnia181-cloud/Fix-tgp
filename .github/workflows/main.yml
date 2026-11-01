@@ -6,7 +6,7 @@ name: TGP Management - Android, iOS Simulator & PWA
 
 on:
   push:
-    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart, fix/fnb-cashier-closing-v2, fix/fnb-cashier-navigation-all-stans, fix/damaged-goods-white-screen, fix/damaged-goods-dialog-mount]
+    branches: [main, master, fix/cross-platform-sync, fix/staff-role-jasa, fix/fnb-cashier-reports, fix/cashier-stan-expense-input, fix/consistent-permanent-deletion, fix/stan-net-report-chart, fix/fnb-cashier-closing-v2, fix/fnb-cashier-navigation-all-stans, fix/damaged-goods-white-screen, fix/damaged-goods-dialog-mount, fix/damaged-goods-runtime-guard]
   workflow_dispatch:
 
 permissions:
@@ -63,6 +63,7 @@ jobs:
           python3 patches/fnb-cashier-navigation-fix.py
           python3 patches/damaged-goods-white-screen.py
           python3 patches/damaged-goods-conditional-mount.py
+          python3 patches/damaged-goods-runtime-guard.py
       - uses: actions/upload-artifact@v4
         with:
           name: TGP-normalized-source
