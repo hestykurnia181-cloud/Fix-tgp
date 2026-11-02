@@ -250,7 +250,7 @@ replace_once(
 
 
 # Persist both sides before showing success or changing the client-side stock state.
-# A failed Supabase write must not be reported as a successful Admin Owner reduction.
+import re
 p = ROOT / 'src/context/TgpContext.tsx'
 s = p.read_text(encoding='utf-8')
 s = s.replace(
@@ -258,89 +258,66 @@ s = s.replace(
     '  decreaseStanStockToGlobal: (outletId: string, itemId: string, quantity: number) => Promise<boolean>;\\n',
     1
 )
-old_method_start = '  const decreaseStanStockToGlobal = (\\n'
-start = s.find(old_method_start)
-end = s.find('  const approveStanReturn = (transferId: string): boolean => {', start)
-if start < 0 or end < 0:
-    raise SystemExit('Admin Owner stock reduction method boundaries not found')
-new_method = """  const decreaseStanStockToGlobal = async (
+method_pattern = r'  const decreaseStanStockToGlobal = \\([\\s\\S]*?\\n  \\};\\n'
+m = re.search(method_pattern, s)
+if not m:
+    raise SystemExit('Admin Owner stock reduction method regex did not match')
+async_method = """  const decreaseStanStockToGlobal = async (
     outletId: string,
     itemId: string,
     requestedQuantity: number
   ): Promise<boolean> => {
     const role = currentSession ? normalizeUserRole(currentSession.user.role) : null;
-    if (
-      !currentSession ||
-      activeBusinessId !== 'biz-1790060286099' ||
-      role !== UserRole.ADMIN_OWNER ||
-      !(currentSession.user.assignedBusinessIds || []).includes('biz-1790060286099')
-    ) {
+    if (!currentSession || activeBusinessId !== 'biz-1790060286099' ||
+        role !== UserRole.ADMIN_OWNER ||
+        !(currentSession.user.assignedBusinessIds || []).includes('biz-1790060286099')) {
       setErrorMessage('Akses pengurangan stok STAN hanya tersedia untuk Admin Owner Divisi Bisnis Sekap Bungo.');
       return false;
     }
-
     const quantity = Number(requestedQuantity);
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       setErrorMessage('Jumlah stok yang dikurangi harus berupa bilangan bulat lebih dari nol.');
       return false;
     }
-
-    const outlet = outlets.find(
-      (entry) => entry.outletId === outletId && entry.businessId === 'biz-1790060286099' && entry.status === 'ACTIVE'
-    );
+    const outlet = outlets.find((entry) => entry.outletId === outletId &&
+      entry.businessId === 'biz-1790060286099' && entry.status === 'ACTIVE');
     if (!outlet) {
       setErrorMessage('STAN tidak ditemukan atau tidak aktif.');
       return false;
     }
-
-    const stanStock = outletStocks.find(
-      (entry) => entry.businessId === 'biz-1790060286099' && entry.outletId === outletId && entry.itemId === itemId
-    );
+    const stanStock = outletStocks.find((entry) => entry.businessId === 'biz-1790060286099' &&
+      entry.outletId === outletId && entry.itemId === itemId);
     if (!stanStock || stanStock.stockQuantity < quantity) {
       setErrorMessage('Stok STAN tidak mencukupi. Stok tersedia: ' + (stanStock?.stockQuantity || 0) + '.');
       return false;
     }
-
-    const globalItem = items.find(
-      (entry) => entry.businessId === 'biz-1790060286099' && entry.itemId === itemId &&
-        entry.type !== 'RAW_MATERIAL' && entry.type !== 'SERVICE'
-    );
+    const globalItem = items.find((entry) => entry.businessId === 'biz-1790060286099' &&
+      entry.itemId === itemId && entry.type !== 'RAW_MATERIAL' && entry.type !== 'SERVICE');
     if (!globalItem) {
       setErrorMessage('Produk tujuan Gudang Stok Siap Jual tidak ditemukan.');
       return false;
     }
-
     const nowTs = Date.now();
     const updatedStanStock: OutletStockEntity = {
-      ...stanStock,
-      stockQuantity: stanStock.stockQuantity - quantity,
-      updatedAt: nowTs,
+      ...stanStock, stockQuantity: stanStock.stockQuantity - quantity, updatedAt: nowTs,
     };
     const updatedGlobalItem: ItemEntity = {
-      ...globalItem,
-      stockQuantity: globalItem.stockQuantity + quantity,
-      updatedAt: nowTs,
+      ...globalItem, stockQuantity: globalItem.stockQuantity + quantity, updatedAt: nowTs,
     };
-
     try {
-      // Wait for both durable writes. Never show success before Supabase confirms them.
       await Promise.all([
         supabaseSyncService.syncOutletStock(updatedStanStock),
         supabaseSyncService.syncItem(updatedGlobalItem),
       ]);
     } catch (error) {
       console.error('[Sekap Bungo] Admin Owner STAN stock reduction persistence failed:', error);
-      setErrorMessage('Pengurangan stok gagal disimpan ke server. Stok tidak dinyatakan berhasil diubah; silakan muat ulang dan coba lagi.');
+      setErrorMessage('Pengurangan stok gagal disimpan ke server. Stok tidak dinyatakan berhasil diubah; muat ulang dan coba lagi.');
       return false;
     }
-
-    setOutletStocks((previous) =>
-      previous.map((entry) => entry.stockId === stanStock.stockId ? updatedStanStock : entry)
-    );
-    setItems((previous) =>
-      previous.map((entry) => entry.itemId === globalItem.itemId ? updatedGlobalItem : entry)
-    );
-
+    setOutletStocks((previous) => previous.map((entry) =>
+      entry.stockId === stanStock.stockId ? updatedStanStock : entry));
+    setItems((previous) => previous.map((entry) =>
+      entry.itemId === globalItem.itemId ? updatedGlobalItem : entry));
     addAuditLog(
       'ADMIN_OWNER_STAN_STOCK_RETURN_TO_GLOBAL',
       'Admin Owner mengurangi ' + quantity + ' ' + globalItem.unit + ' ' + globalItem.name +
@@ -350,29 +327,15 @@ new_method = """  const decreaseStanStockToGlobal = async (
         '. Tidak dicatat sebagai transaksi atau laporan STAN.',
       'biz-1790060286099'
     );
-    setUserMessage(
-      quantity + ' ' + globalItem.unit + ' ' + globalItem.name +
-      ' berhasil dikembalikan dari STAN ' + outlet.name + ' ke Gudang Stok Siap Jual.'
-    );
+    setUserMessage(quantity + ' ' + globalItem.unit + ' ' + globalItem.name +
+      ' berhasil dikembalikan dari STAN ' + outlet.name + ' ke Gudang Stok Siap Jual.');
     return true;
   };
 
 """
-s = s[:start] + new_method + s[end:]
-
-# Both stock reduction entry points must await the persistence result.
-s = s.replace(
-    'onClick={() => {\\n                                  if (decreaseStanStockToGlobal(outlet.outletId, selectedStock.itemId, Number(reductionQuantity))) {',
-    'onClick={async () => {\\n                                  if (await decreaseStanStockToGlobal(outlet.outletId, selectedStock.itemId, Number(reductionQuantity))) {'
-)
-s = s.replace(
-    'onClick={() => {\\n                                  if (decreaseStanStockToGlobal(stock.outletId, stock.itemId, quantity)) {',
-    'onClick={async () => {\\n                                  if (await decreaseStanStockToGlobal(stock.outletId, stock.itemId, quantity)) {'
-)
+s = s[:m.start()] + async_method + s[m.end():]
 p.write_text(s, encoding='utf-8')
-print('Admin Owner STAN reduction now awaits both Supabase writes before updating UI or reporting success.')
 
-# Await the async operation in both UI variants (card action and detail-table action).
 p = ROOT / 'src/screens/StanOutletScreen.tsx'
 s = p.read_text(encoding='utf-8')
 s = s.replace(
@@ -391,4 +354,4 @@ s = s.replace(
     1
 )
 p.write_text(s, encoding='utf-8')
-print('Updated Admin Owner stock reduction UI to await server confirmation.')
+print('Admin Owner STAN stock reduction now waits for server confirmation.')
