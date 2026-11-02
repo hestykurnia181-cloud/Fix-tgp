@@ -30,9 +30,9 @@ method = """  const decreaseStanStockToGlobal = (
     const role = currentSession ? normalizeUserRole(currentSession.user.role) : null;
     if (
       !currentSession ||
-      activeBusinessId !== BUSINESS_ID ||
+      activeBusinessId !== 'biz-1790060286099' ||
       role !== UserRole.ADMIN_OWNER ||
-      !(currentSession.user.assignedBusinessIds || []).includes(BUSINESS_ID)
+      !(currentSession.user.assignedBusinessIds || []).includes('biz-1790060286099')
     ) {
       setErrorMessage('Akses pengurangan stok STAN hanya tersedia untuk Admin Owner Divisi Bisnis Sekap Bungo.');
       return false;
@@ -45,7 +45,7 @@ method = """  const decreaseStanStockToGlobal = (
     }
 
     const outlet = outlets.find(
-      (entry) => entry.outletId === outletId && entry.businessId === BUSINESS_ID && entry.status === 'ACTIVE'
+      (entry) => entry.outletId === outletId && entry.businessId === 'biz-1790060286099' && entry.status === 'ACTIVE'
     );
     if (!outlet) {
       setErrorMessage('STAN tidak ditemukan atau tidak aktif.');
@@ -53,7 +53,7 @@ method = """  const decreaseStanStockToGlobal = (
     }
 
     const stanStock = outletStocks.find(
-      (entry) => entry.businessId === BUSINESS_ID && entry.outletId === outletId && entry.itemId === itemId
+      (entry) => entry.businessId === 'biz-1790060286099' && entry.outletId === outletId && entry.itemId === itemId
     );
     if (!stanStock || stanStock.stockQuantity < quantity) {
       setErrorMessage('Stok STAN tidak mencukupi. Stok tersedia: ' + (stanStock?.stockQuantity || 0) + '.');
@@ -61,7 +61,7 @@ method = """  const decreaseStanStockToGlobal = (
     }
 
     const globalItem = items.find(
-      (entry) => entry.businessId === BUSINESS_ID && entry.itemId === itemId &&
+      (entry) => entry.businessId === 'biz-1790060286099' && entry.itemId === itemId &&
         entry.type !== 'RAW_MATERIAL' && entry.type !== 'SERVICE'
     );
     if (!globalItem) {
@@ -100,7 +100,7 @@ method = """  const decreaseStanStockToGlobal = (
         ' menjadi ' + updatedStanStock.stockQuantity + '. Stok Gudang Stok Siap Jual: ' +
         globalItem.stockQuantity + ' menjadi ' + updatedGlobalItem.stockQuantity +
         '. Tidak dicatat sebagai transaksi atau laporan STAN.',
-      BUSINESS_ID
+      'biz-1790060286099'
     );
     setUserMessage(
       quantity + ' ' + globalItem.unit + ' ' + globalItem.name +
