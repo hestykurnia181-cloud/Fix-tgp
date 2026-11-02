@@ -24,6 +24,12 @@ replace_once(
     "  const transferStockToStan = async (\n",
     "async transferStockToStan declaration"
 )
+replace_once(
+    "src/context/TgpContext.tsx",
+    "  const transferStockToStan = async (\n    outletId: string,\n    itemId: string,\n    quantity: number,\n    notes?: string\n  ): boolean => {",
+    "  const transferStockToStan = async (\n    outletId: string,\n    itemId: string,\n    quantity: number,\n    notes?: string\n  ): Promise<boolean> => {",
+    "async transferStockToStan return type"
+)
 old = """    // 1. Deduct from Production Stock
     const updatedTargetItem: ItemEntity = {
       ...targetItem,
