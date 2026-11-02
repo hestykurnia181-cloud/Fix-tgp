@@ -142,7 +142,7 @@ replace_once(
     "  const [selectedOutletFilter, setSelectedOutletFilter] = useState<string>('ALL');\n"
     "  const [editingStockId, setEditingStockId] = useState<string | null>(null);\n"
     "  const [reductionQuantity, setReductionQuantity] = useState('');\n"
-    "  const canReduceStanStock = activeBusiness?.businessId === BUSINESS_ID && currentSession?.user.role === 'ADMIN_OWNER';\n",
+    "  const canReduceStanStock = activeBusiness?.businessId === 'biz-1790060286099' && currentSession?.user.role === 'ADMIN_OWNER';\n",
     'STAN stock reduction UI state and access scope'
 )
 replace_once(
