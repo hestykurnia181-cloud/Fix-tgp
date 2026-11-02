@@ -371,3 +371,24 @@ s = s.replace(
 )
 p.write_text(s, encoding='utf-8')
 print('Admin Owner STAN reduction now awaits both Supabase writes before updating UI or reporting success.')
+
+# Await the async operation in both UI variants (card action and detail-table action).
+p = ROOT / 'src/screens/StanOutletScreen.tsx'
+s = p.read_text(encoding='utf-8')
+s = s.replace(
+    'onClick={() => {\\n                                if (decreaseStanStockToGlobal(outlet.outletId, selectedStock.itemId, Number(reductionQuantity))) {',
+    'onClick={async () => {\\n                                if (await decreaseStanStockToGlobal(outlet.outletId, selectedStock.itemId, Number(reductionQuantity))) {',
+    1
+)
+s = s.replace(
+    'onClick={() => {\\n                                  const quantity = Number(reductionQuantity);',
+    'onClick={async () => {\\n                                  const quantity = Number(reductionQuantity);',
+    1
+)
+s = s.replace(
+    'if (decreaseStanStockToGlobal(stock.outletId, stock.itemId, quantity)) {',
+    'if (await decreaseStanStockToGlobal(stock.outletId, stock.itemId, quantity)) {',
+    1
+)
+p.write_text(s, encoding='utf-8')
+print('Updated Admin Owner stock reduction UI to await server confirmation.')
