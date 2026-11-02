@@ -233,7 +233,7 @@ replace_once(
 print('Added Sekap Bungo Admin Owner-only STAN stock reduction. Quantity is returned to global ready stock; no STAN transfer, mutation, ledger, sales, or closing report is created. Audit log only.')
 
 
-# Card-level control: this is the entry point visible beside each "Pasok Stok" button.
+# Card-level control: visible beside Pasok Stok on each individual STAN card.
 replace_once(
     'src/screens/StanOutletScreen.tsx',
     "  const canReduceStanStock = activeBusiness?.businessId === 'biz-1790060286099' && currentSession?.user.role === 'ADMIN_OWNER';\\n",
@@ -245,15 +245,15 @@ replace_once(
 
 replace_once(
     'src/screens/StanOutletScreen.tsx',
-    `                    <button
+    """                    <button
                       onClick={() => setSupplyOutlet(outlet)}
                       className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-2xs transition flex items-center gap-1"
                     >
                       <Send className="w-3 h-3" />
                       <span>Pasok Stok</span>
                     </button>
-                  </div>`,
-    `                    <div className="flex items-center gap-2">
+                  </div>""",
+    """                    <div className="flex items-center gap-2">
                       {canReduceStanStock && (
                         <button
                           type="button"
@@ -263,7 +263,7 @@ replace_once(
                             setReductionQuantity('');
                           }}
                           className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-2xs transition flex items-center gap-1"
-                          data-testid={`btn_reduce_stan_stock_${outlet.code}`}
+                          data-testid={'btn_reduce_stan_stock_' + outlet.code}
                         >
                           <MinusCircle className="w-3 h-3" />
                           <span>Kurangi Stok</span>
@@ -307,7 +307,7 @@ replace_once(
                               max={selectedStock.stockQuantity}
                               step="1"
                               inputMode="numeric"
-                              placeholder={`Jumlah (maks. ${selectedStock.stockQuantity})`}
+                              placeholder={'Jumlah (maks. ' + selectedStock.stockQuantity + ')'}
                               value={reductionQuantity}
                               onChange={(event) => setReductionQuantity(event.target.value)}
                               className="min-w-0 flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-bold"
@@ -343,6 +343,6 @@ replace_once(
                         );
                       })()}
                     </div>
-                  )}`,
+                  )}""",
     'STAN card adjacent stock reduction control'
 )
