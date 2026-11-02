@@ -121,8 +121,8 @@ if import_start < 0 or import_end < 0:
 icon_names = s[import_start:import_end]
 for icon_name in ('MinusCircle', 'Check', 'X'):
     if icon_name not in icon_names:
-        s = s[:import_end] + ', ' + icon_name + s[import_end:]
-        import_end = s.find('}', import_start)
+        icon_names += '\\n  ' + icon_name + ','
+s = s[:import_start] + icon_names + s[import_end:]
 p.write_text(s, encoding='utf-8')
 
 replace_once(
