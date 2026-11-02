@@ -105,12 +105,19 @@ replace_once(
 
 
 # Bind the Admin Owner-only controls inside the actual STAN screen component.
-replace_once(
-    'src/screens/StanOutletScreen.tsx',
-    '  AlertCircle,\n  ArrowRightLeft,',
-    '  AlertCircle,\n  ArrowRightLeft,\n  MinusCircle,\n  Check,\n  X,',
-    'STAN stock reduction icons'
-)
+import re
+p = ROOT / 'src/screens/StanOutletScreen.tsx'
+s = p.read_text(encoding='utf-8')
+icon_import = re.search(r"import\\s*{([^}]*)}\\s*from\\s*['\\"]lucide-react['\\"];?", s)
+if not icon_import:
+    raise SystemExit('lucide-react icon import not found in StanOutletScreen')
+icon_names = icon_import.group(1)
+for icon_name in ('MinusCircle', 'Check', 'X'):
+    if icon_name not in icon_names:
+        icon_names += ',\\n  ' + icon_name
+s = s[:icon_import.start(1)] + icon_names + s[icon_import.end(1):]
+p.write_text(s, encoding='utf-8')
+
 replace_once(
     'src/screens/StanOutletScreen.tsx',
     '    deleteOutlet,\n',
