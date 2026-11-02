@@ -105,17 +105,24 @@ replace_once(
 
 
 # Bind the Admin Owner-only controls inside the actual STAN screen component.
-import re
 p = ROOT / 'src/screens/StanOutletScreen.tsx'
 s = p.read_text(encoding='utf-8')
-icon_import = re.search(r"import\s*{([^}]*)}\s*from\s*['\"]lucide-react['\"];?", s)
-if not icon_import:
+module_marker = "from 'lucide-react'"
+module_index = s.find(module_marker)
+if module_index < 0:
+    module_marker = 'from "lucide-react"'
+    module_index = s.find(module_marker)
+if module_index < 0:
     raise SystemExit('lucide-react icon import not found in StanOutletScreen')
-icon_names = icon_import.group(1)
+import_start = s.rfind('import {', 0, module_index)
+import_end = s.find('}', import_start)
+if import_start < 0 or import_end < 0:
+    raise SystemExit('lucide-react named import block not found')
+icon_names = s[import_start:import_end]
 for icon_name in ('MinusCircle', 'Check', 'X'):
     if icon_name not in icon_names:
-        icon_names += ',\n  ' + icon_name
-s = s[:icon_import.start(1)] + icon_names + s[icon_import.end(1):]
+        s = s[:import_end] + ', ' + icon_name + s[import_end:]
+        import_end = s.find('}', import_start)
 p.write_text(s, encoding='utf-8')
 
 replace_once(
