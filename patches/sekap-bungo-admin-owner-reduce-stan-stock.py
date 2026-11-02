@@ -107,22 +107,22 @@ replace_once(
 # Bind the Admin Owner-only controls inside the actual STAN screen component.
 replace_once(
     'src/screens/StanOutletScreen.tsx',
-    '  AlertCircle,\\n  ArrowRightLeft,',
-    '  AlertCircle,\\n  ArrowRightLeft,\\n  MinusCircle,\\n  Check,\\n  X,',
+    '  AlertCircle,\n  ArrowRightLeft,',
+    '  AlertCircle,\n  ArrowRightLeft,\n  MinusCircle,\n  Check,\n  X,',
     'STAN stock reduction icons'
 )
 replace_once(
     'src/screens/StanOutletScreen.tsx',
-    '    deleteOutlet,\\n',
-    '    deleteOutlet,\\n    currentSession,\\n    decreaseStanStockToGlobal,\\n',
+    '    deleteOutlet,\n',
+    '    deleteOutlet,\n    currentSession,\n    decreaseStanStockToGlobal,\n',
     'STAN stock reduction context bindings'
 )
 replace_once(
     'src/screens/StanOutletScreen.tsx',
-    "  const [selectedOutletFilter, setSelectedOutletFilter] = useState<string>('ALL');\\n",
-    "  const [selectedOutletFilter, setSelectedOutletFilter] = useState<string>('ALL');\\n" +
-    "  const [reducingOutletId, setReducingOutletId] = useState<string | null>(null);\\n" +
-    "  const [selectedReductionStockId, setSelectedReductionStockId] = useState('');\\n" +
-    "  const canReduceStanStock = activeBusiness?.businessId === 'biz-1790060286099' && currentSession?.user.role === 'ADMIN_OWNER';\\n",
+    "  const [selectedOutletFilter, setSelectedOutletFilter] = useState<string>('ALL');\n",
+    "  const [selectedOutletFilter, setSelectedOutletFilter] = useState<string>('ALL');\n" +
+    "  const [reducingOutletId, setReducingOutletId] = useState<string | null>(null);\n" +
+    "  const [selectedReductionStockId, setSelectedReductionStockId] = useState('');\n" +
+    "  const canReduceStanStock = activeBusiness?.businessId === 'biz-1790060286099' && currentSession?.user.role === 'ADMIN_OWNER';\n",
     'STAN stock reduction UI state'
 )
