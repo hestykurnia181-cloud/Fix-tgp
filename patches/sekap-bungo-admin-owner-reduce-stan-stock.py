@@ -119,8 +119,9 @@ import_end = s.find('}', import_start)
 if import_start < 0 or import_end < 0:
     raise SystemExit('lucide-react named import block not found')
 icon_names = s[import_start:import_end]
+existing_icons = {part.strip() for part in icon_names.replace('import {', '').split(',')}
 for icon_name in ('MinusCircle', 'Check', 'X'):
-    if icon_name not in icon_names:
+    if icon_name not in existing_icons:
         icon_names += '\n  ' + icon_name + ','
 s = s[:import_start] + icon_names + s[import_end:]
 p.write_text(s, encoding='utf-8')
