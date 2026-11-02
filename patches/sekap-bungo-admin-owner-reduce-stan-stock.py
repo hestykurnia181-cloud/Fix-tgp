@@ -250,7 +250,6 @@ replace_once(
 
 
 # Persist both sides before showing success or changing the client-side stock state.
-import re
 p = ROOT / 'src/context/TgpContext.tsx'
 s = p.read_text(encoding='utf-8')
 s = s.replace(
@@ -258,10 +257,13 @@ s = s.replace(
     '  decreaseStanStockToGlobal: (outletId: string, itemId: string, quantity: number) => Promise<boolean>;\\n',
     1
 )
-method_pattern = r'  const decreaseStanStockToGlobal = \\([\\s\\S]*?\\n  \\};\\n'
-m = re.search(method_pattern, s)
-if not m:
-    raise SystemExit('Admin Owner stock reduction method regex did not match')
+method_start = s.find('  const decreaseStanStockToGlobal = (')
+if method_start < 0:
+    raise SystemExit('Admin Owner stock reduction method start not found')
+method_end = s.find('\\n  };', method_start)
+if method_end < 0:
+    raise SystemExit('Admin Owner stock reduction method end not found')
+method_end += len('\\n  };')
 async_method = """  const decreaseStanStockToGlobal = async (
     outletId: string,
     itemId: string,
@@ -330,10 +332,8 @@ async_method = """  const decreaseStanStockToGlobal = async (
     setUserMessage(quantity + ' ' + globalItem.unit + ' ' + globalItem.name +
       ' berhasil dikembalikan dari STAN ' + outlet.name + ' ke Gudang Stok Siap Jual.');
     return true;
-  };
-
-"""
-s = s[:m.start()] + async_method + s[m.end():]
+  };"""
+s = s.slice(0, method_start) + async_method + s.slice(method_end)
 p.write_text(s, encoding='utf-8')
 
 p = ROOT / 'src/screens/StanOutletScreen.tsx'
