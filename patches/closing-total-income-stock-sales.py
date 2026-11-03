@@ -6,7 +6,7 @@ s = p.read_text(encoding="utf-8")
 replacements = [
     (
         "   return {cash,qris,transfer,debit,expense,cashNet:cash-expense};",
-        "   const totalIncome=cash+qris+transfer;\n   const stockIn=(closing.items||[]).reduce((n,item)=>n+Number(item.stockIn||0),0);\n   return {cash,qris,transfer,debit,expense,cashNet:cash-expense,totalIncome,stockIn};"
+        "   const totalIncome=cash+qris+transfer;\n   const stockIn=(closing.items||[]).reduce((n,item)=>n+Number(item.stockIn||0),0);\n   const soldCups=(closing.items||[]).reduce((n,item)=>n+Number(item.sold||0),0);\n   return {cash,qris,transfer,debit,expense,cashNet:cash-expense,totalIncome,stockIn,soldCups};"
     ),
     (
         "   totals.cash+=b.cash;totals.cashNet+=b.cashNet;totals.qris+=b.qris;totals.transfer+=b.transfer;totals.debit+=b.debit;totals.expense+=b.expense;",
