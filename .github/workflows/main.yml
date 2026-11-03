@@ -54,7 +54,6 @@ jobs:
           python3 patches/durable-deletion-tombstones.py
           python3 patches/attendance-sync.py
           python3 patches/attendance-daily-photo-report.py
-          python3 patches/attendance-photo-storage.py
           python3 patches/fnb-cashier-stan-attendance-damage.py
           python3 patches/prevent-pos-double-submit.py
           python3 patches/cashier-stan-expenses.py
@@ -78,6 +77,7 @@ jobs:
           python3 patches/teboo-admin-owner-report-scope.py
           python3 patches/sekap-bungo-admin-owner-ready-stock.py
           python3 patches/sekap-bungo-admin-owner-reduce-stan-stock.py
+          python3 patches/attendance-photo-storage.py
       - uses: actions/upload-artifact@v4
         with:
           name: TGP-normalized-source
