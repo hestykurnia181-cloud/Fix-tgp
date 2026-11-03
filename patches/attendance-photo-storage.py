@@ -133,15 +133,16 @@ if "supabaseSyncService.migrateAttendancePhotos" not in rs:
     rs = rs.replace(marker, effect + marker, 1)
     report.write_text(rs)
 
-# Ensure the screen has the React hook used by the migration effect.
-if not re.search(r"import\\s+React[^;]*\\buseEffect\\b[^;]*from\\s+['\\"]react['\\"]", rs):
-    m = re.search(r"import\\s+React,\\s*\\{([^}]+)\\}\\s+from\\s+['\\"]react['\\"];", rs)
-    if m and 'useEffect' not in m.group(1):
-        rs = rs[:m.start(1)] + m.group(1).rstrip() + ', useEffect' + rs[m.end(1):]
-    else:
-        m = re.search(r"import\\s+\\{([^}]+)\\}\\s+from\\s+['\\"]react['\\"];", rs)
-        if m and 'useEffect' not in m.group(1):
-            rs = rs[:m.start(1)] + m.group(1).rstrip() + ', useEffect' + rs[m.end(1):]
-    report.write_text(rs)
-
+# Ensure the screen imports the React hook used by the migration effect.
+lines = rs.splitlines()
+for i, line in enumerate(lines):
+    if line.startswith("import") and ("from 'react'" in line or 'from "react"' in line):
+        if "useEffect" not in line:
+            if "{" in line:
+                lines[i] = line.replace("{", "{ useEffect,", 1)
+            else:
+                lines.insert(i + 1, "import { useEffect } from 'react';")
+        break
+rs = "\n".join(lines) + "\n"
+report.write_text(rs)
 print("[attendance-storage] Owner/Admin attendance view migrates legacy Base64 photos to Storage")
