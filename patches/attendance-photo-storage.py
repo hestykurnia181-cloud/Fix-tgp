@@ -89,7 +89,7 @@ if "const attendancePhotoUrl = photoDataUrl" not in s:
     if (photoDataUrl) {
       try {
         attendancePhotoUrl = await supabaseSyncService.uploadAttendancePhoto(
-          photoDataUrl, activeBusiness?.businessId || '', currentUser?.userId || '', Date.now()
+          photoDataUrl, activeBusiness?.businessId || '', '', Date.now()
         );
       } catch (error) {
         console.error('[attendance-storage] photo upload failed; attendance will be saved without embedded image', error);
@@ -132,4 +132,16 @@ if "supabaseSyncService.migrateAttendancePhotos" not in rs:
     if marker not in rs: raise RuntimeError("[attendance-storage] report migration effect anchor missing")
     rs = rs.replace(marker, effect + marker, 1)
     report.write_text(rs)
+
+# Ensure the screen has the React hook used by the migration effect.
+if not re.search(r"import\\s+React[^;]*\\buseEffect\\b[^;]*from\\s+['\\"]react['\\"]", rs):
+    m = re.search(r"import\\s+React,\\s*\\{([^}]+)\\}\\s+from\\s+['\\"]react['\\"];", rs)
+    if m and 'useEffect' not in m.group(1):
+        rs = rs[:m.start(1)] + m.group(1).rstrip() + ', useEffect' + rs[m.end(1):]
+    else:
+        m = re.search(r"import\\s+\\{([^}]+)\\}\\s+from\\s+['\\"]react['\\"];", rs)
+        if m and 'useEffect' not in m.group(1):
+            rs = rs[:m.start(1)] + m.group(1).rstrip() + ', useEffect' + rs[m.end(1):]
+    report.write_text(rs)
+
 print("[attendance-storage] Owner/Admin attendance view migrates legacy Base64 photos to Storage")
