@@ -83,7 +83,7 @@ else:
     raise RuntimeError('[attendance-storage] recordAttendance implementation anchor missing')
 s = '\n'.join(lines) + '\n'
 if "const attendancePhotoUrl = photoDataUrl" not in s:
-    pattern = r"(  const recordAttendance = (?:async )?[^\\n]*photoDataUrl[^\\n]*=> \\{\\n)"
+    pattern = r"(  const recordAttendance = (?:async )?[^\n]*photoDataUrl[^\n]*=> \{\n)"
     m = re.search(pattern, s)
     if not m: raise RuntimeError("[attendance-storage] async recorder body anchor missing")
     insert = """    let attendancePhotoUrl = '';
