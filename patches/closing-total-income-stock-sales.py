@@ -14,7 +14,7 @@ replacements = [
     ),
     (
         " },{cash:0,cashNet:0,qris:0,transfer:0,debit:0,expense:0});",
-        " },{cash:0,cashNet:0,qris:0,transfer:0,debit:0,expense:0,stockIn:0,totalIncome:0});"
+        " },{cash:0,cashNet:0,qris:0,transfer:0,debit:0,expense:0,stockIn:0,totalIncome:0,soldCups:0});"
     ),
     (
         "· Total pendapatan {rupiah(getPaymentBreakdown(c).cash)} · QRIS {rupiah(getPaymentBreakdown(c).qris)} · Transfer {rupiah(getPaymentBreakdown(c).transfer)} · Debit {rupiah(getPaymentBreakdown(c).debit)}",
@@ -37,4 +37,4 @@ for old, new in replacements:
         s = s.replace(old, new, 1)
 
 p.write_text(s, encoding="utf-8")
-print("Closing history now totals Cash + QRIS + Transfer; Debit card removed and replaced by Stok Penjualan (sum of stockIn).")
+print("Closing history replaces Transfer with sold cup count (sum of item sold quantities).")
