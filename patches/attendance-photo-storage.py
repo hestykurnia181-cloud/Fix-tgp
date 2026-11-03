@@ -73,16 +73,17 @@ if "public async uploadAttendancePhoto(" not in s:
 # New attendance photo uploads are completed before the attendance row is persisted.
 ctx = ROOT / "src/context/TgpContext.tsx"
 s = ctx.read_text()
-s2 = s.replace(
-    "  const recordAttendance = (type: 'MASUK' | 'PULANG', note: string, photoDataUrl: string) => {",
-    "  const recordAttendance = async (type: 'MASUK' | 'PULANG', note: string, photoDataUrl?: string) => {",
-    1
-)
-if s2 == s and "const recordAttendance = async (type: 'MASUK' | 'PULANG', note: string, photoDataUrl?: string)" not in s:
-    raise RuntimeError("[attendance-storage] recordAttendance implementation anchor missing")
-s = s2
+lines = s.splitlines()
+for i, line in enumerate(lines):
+    if line.startswith('  const recordAttendance =') and 'photoDataUrl' in line:
+        if 'async' not in line:
+            lines[i] = line.replace('const recordAttendance =', 'const recordAttendance = async', 1)
+        break
+else:
+    raise RuntimeError('[attendance-storage] recordAttendance implementation anchor missing')
+s = '\n'.join(lines) + '\n'
 if "const attendancePhotoUrl = photoDataUrl" not in s:
-    pattern = r"(  const recordAttendance = async \(type: 'MASUK' \| 'PULANG', note: string, photoDataUrl\?: string\) => \{\n)"
+    pattern = r"(  const recordAttendance = (?:async )?[^\\n]*photoDataUrl[^\\n]*=> \\{\\n)"
     m = re.search(pattern, s)
     if not m: raise RuntimeError("[attendance-storage] async recorder body anchor missing")
     insert = """    let attendancePhotoUrl = '';
