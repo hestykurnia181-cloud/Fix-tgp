@@ -104,7 +104,7 @@ new_note = """      note: attendancePhotoUrl
 if new_note not in s:
     start = s.find("const newAtt")
     if start < 0: raise RuntimeError("[attendance-storage] attendance record object anchor missing")
-    m = re.search(r"(\\s*note:\\s*).*?(,\\n\\s*\\};)", s[start:], re.S)
+    m = re.search(r"(\s*note:\s*).*?(,\n\s*\};)", s[start:], re.S)
     if not m: raise RuntimeError("[attendance-storage] attendance note field anchor missing")
     s = s[:start + m.start()] + m.group(1) + "attendancePhotoUrl ? '__TGP_ATTENDANCE_PHOTO__' + JSON.stringify({ note: note.trim(), photo: attendancePhotoUrl }) : note.trim()" + m.group(2) + s[start + m.end():]
 ctx.write_text(s)
