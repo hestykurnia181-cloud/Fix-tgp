@@ -74,7 +74,7 @@ if "public async uploadAttendancePhoto(" not in s:
 ctx = ROOT / "src/context/TgpContext.tsx"
 s = ctx.read_text()
 s2 = s.replace(
-    "  const recordAttendance = (type: 'MASUK' | 'PULANG', note: string, photoDataUrl?: string) => {",
+    "  const recordAttendance = (type: 'MASUK' | 'PULANG', note: string, photoDataUrl: string) => {",
     "  const recordAttendance = async (type: 'MASUK' | 'PULANG', note: string, photoDataUrl?: string) => {",
     1
 )
@@ -89,7 +89,7 @@ if "const attendancePhotoUrl = photoDataUrl" not in s:
     if (photoDataUrl) {
       try {
         attendancePhotoUrl = await supabaseSyncService.uploadAttendancePhoto(
-          photoDataUrl, activeBusiness?.businessId || '', '', Date.now()
+          photoDataUrl, activeBusinessId || '', '', Date.now()
         );
       } catch (error) {
         console.error('[attendance-storage] photo upload failed; attendance will be saved without embedded image', error);
